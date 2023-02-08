@@ -41,9 +41,6 @@ theta_blade2=[omega*delta_t+2*np.pi/3]
 theta_blade3=[omega*delta_t+4*np.pi/3]
 
 
-
-
-
 time=[0]
 
 
@@ -116,6 +113,8 @@ for i in range(timerange):
     
     V0_4=a14@V0_array
     
+    
+    # V0 uden tower (system 4)
     V0y.append(V0_4[1])
     V0z.append(V0_4[2])
     
@@ -129,7 +128,7 @@ for i in range(timerange):
     Vr=z1[i]/r_til_punkt*V0z[i]*(1-(a/r_til_punkt)**2)
     Vtheta=y1[i]/r_til_punkt*V0z[i]*(1+(a/r_til_punkt)**2)
     
-    
+    # V0 med tower (system 4)
     Vz.append((z1[i]/r_til_punkt*Vr+y1[i]/r_til_punkt*Vtheta))
     Vy.append((y1[i]/r_til_punkt*Vr-z1[i]/r_til_punkt*Vtheta))
 
