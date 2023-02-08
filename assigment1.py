@@ -12,6 +12,19 @@ import matplotlib.pyplot as plt
 from numpy import unravel_index
 
 
+#%% Force coeff files
+
+files=['FFA-W3-241.txt','FFA-W3-301.txt','FFA-W3-360.txt','FFA-W3-480.txt','FFA-W3-600.txt']
+
+# Reading files
+# for i in range(np.size(files)):
+#     aoa,cl_tab[:,i],cd_tab[:,i],cm_tab[:,i] = np.loadtxt(files[i], skiprows=0).T
+
+
+
+
+
+
 H=119  #Hub height m
 L_s=7.1  #Length of shaft m
 R=89.17 #Radius m
