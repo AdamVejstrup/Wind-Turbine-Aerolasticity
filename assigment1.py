@@ -113,6 +113,12 @@ V0z=[]
 
 Vz=[]
 Vy=[]
+
+P=[]
+T=[]
+
+p_t=np.array([[0]*B]*len(airfoils))
+p_n=np.array([[0]*B]*len(airfoils))
 #################################   Opgave 1   ###########################
 
 
@@ -162,7 +168,7 @@ for n in range(1):
             V0y.append(V0_4[1])
             V0z.append(V0_4[2])
             
-            print(k)
+            #print(k)
             
             # Vi bruger W_y[k] og ikke W_y[k-1], da W_y opdateres sidst i loopet
             
@@ -192,13 +198,22 @@ for n in range(1):
             
             V_f_W = np.sqrt(V0y[k]**2 + (V0z[k] + f_g * W_z[k])**2)
             
-            l = 0.5 * rho * V_rel_abs**2 * c * cl
-            d = 0.5 * rho * V_rel_abs**2 * c * cd
+            l = 0.5 * rho * V_rel_abs**2 * c[k] * cl
+            d = 0.5 * rho * V_rel_abs**2 * c[k] * cd
+           
+            if k==len(airfoils)-1:
+                p_z=0
+                p_y=0
+            else:
+                p_z = l * np.cos(phi) + d * np.sin(phi)      
+                p_y = l * np.sin(phi) - d * np.cos(phi)
             
-            p_z = l * np.cos(phi) + d * np.sin(phi)
-            p_y = l * np.sin(phi) - d * np.cos(phi)
+            #Appender normal og tangential loads for hvert blad
+            p_t[k,i]=p_y
             
-            F = (2/math.pi) * np.arccos(np.exp(-(B/2) * ((R-r)/(r * np.sin(abs(phi))))))
+            p_n[k,i]=p_z
+            
+            F = (2/math.pi) * np.arccos(np.exp(-(B/2) * ((R-r[k])/(r[k] * np.sin(abs(phi))))))
             
             W_z_qs = (B * l * np.cos(phi))/(4 * np.pi * rho * r[k] * F * V_f_W)
             
@@ -207,8 +222,13 @@ for n in range(1):
         
             # NÆSTE SKRIDT: LAV W_Y OG APPEND
             # W_y er en list med ét element. Skal vi appende (W_y_qs)
+            W_y.append(W_y_qs)
+            W_z.append(W_z_qs)
     
-    
-    
+    #Udregner thrsut og power disse skal appendes så vi kan plotte dem til tiden
+    #M_r=B*np.trapz(np.array(p_y)*airfoils['r[m]'].values,airfoils['r[m]'].values)
+    #P.append(omega*M_r)    
+    #T.append(B*np.trapz(np.array(p_z),airfoils['r[m]'].values))
+        
 
 
