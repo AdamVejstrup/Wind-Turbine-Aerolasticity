@@ -224,7 +224,7 @@ for n in range(1):
             W_y.append(W_y_qs)
             W_z.append(W_z_qs)
     
-    #Udregner thrsut og power disse skal appendes så vi kan plotte dem til tiden
+    #Udregner thrust og power disse skal appendes så vi kan plotte dem til tiden
     #M_r=B*np.trapz(np.array(p_y)*airfoils['r[m]'].values,airfoils['r[m]'].values)
     #P.append(omega*M_r)    
     #T.append(B*np.trapz(np.array(p_z),airfoils['r[m]'].values))
