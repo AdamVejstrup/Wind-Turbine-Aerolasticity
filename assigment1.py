@@ -67,8 +67,7 @@ wind_shear=0
 
 V_0=9 # mean windspeed at hub height m/s
 
-a=3.32 # m tower radius
-# For mere præcist bør der tilføjes for x<H then a=3.32, else a=0. Til spg 4
+a=3.32 # m tower radius (bruges ikke i aflevering men til exercise uge 1)
 
 theta_blade=[omega*delta_t]
 W_y = [0]
