@@ -8,8 +8,15 @@ import numpy as np
 
 #TEST OF INTERPOLATION ROUTINE. COMPARE TO INTERP1 IN MATLAB
 
-def force_coeffs_10MW(angle_of_attack,thick,aoa, cl_tab,cd_tab, cm_tab): #Creating a function which takes the angle of attack and the section thickness:
-
+def force_coeffs_10MW(angle_of_attack,thick,aoa, cl_tab, cd_tab, cm_tab): #Creating a function which takes the angle of attack and the section thickness:
+    
+    
+    # angle_of_attack=5
+    # thick = tc[0]
+    # cl_tab = cl_stat_tab
+    # cd_tab = cd_stat_tab
+    # cm_tab = cm_stat_tab
+    # aoa = aoa_tab
 
     thick_prof=np.zeros(6)
     # NOTE THAT IN PYTHON THE INTERPOLATION REQUIRES THAT THE VALUES INCREASE IN THE VECTOR!
