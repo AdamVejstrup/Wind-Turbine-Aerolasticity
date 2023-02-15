@@ -92,6 +92,8 @@ V_0=9 # mean windspeed at hub height m/s
 # Dynamic wake filter constant
 k_dwf = 0.6
 
+
+
 #%% Transformation matrices
 
 a1=np.array([[1,0,0],
@@ -381,12 +383,11 @@ plt.show()
 
 
 #%% Creating figure with subplots of T and P
-fig, ax1 = plt.subplots()
+fig,(ax1,ax3) = plt.subplots(2,1,figsize=(10, 8))
 
-fig.suptitle('Thrust and power')
 color = 'tab:orange'
 ax1.grid()
-ax1.set_xlabel('Time [s]')
+ax1.set_title('Thrust and power')
 ax1.set_ylabel('Thrust [MN]', color=color)
 ax1.plot(time_arr, T_arr/(10**6), color=color)
 ax1.tick_params(axis='y', labelcolor=color)
@@ -400,6 +401,21 @@ ax2.plot(time_arr, P_arr/(10**6), color=color)
 # Man skal af en eller anden grund have denne her linje med for at de to y-akser bliver aligned
 ax2.set_yticks(np.linspace(ax2.get_yticks()[0],ax2.get_yticks()[-1],len(ax1.get_yticks())))
 ax2.tick_params(axis='y', labelcolor=color)
+
+
+blade_element = 8
+ax3.set_title('Induced wind')
+ax3.plot(time_arr,Wy_arr[blade_element, 0, :],label='$W_y$')
+ax3.plot(time_arr,Wz_arr[blade_element, 0, :],label='$W_z$')
+ax3.axvline(100,color = 'grey', linestyle='dotted',label='Time = 100 s')
+ax1.axvline(100,color = 'grey', linestyle='dotted',label='Time = 100 s')
+ax3.axvline(150,color = 'grey', linestyle='--',label='Time = 150 s')
+ax1.axvline(150,color = 'grey', linestyle='--',label='Time = 150 s')
+ax3.grid()
+ax3.set_xlabel('Time [s]')
+ax3.set_ylabel('W [m/s]')
+ax3.set_xlim([0,max(time_arr)])
+ax3.legend(loc='center left')
 
 fig.tight_layout()  # otherwise the right y-label is slightly clipped
 plt.show()
