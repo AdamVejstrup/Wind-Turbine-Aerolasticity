@@ -5,11 +5,8 @@ Created on Wed Feb  1 11:09:29 2023
 @author: leael
 """
 
-import pandas as pd
 import numpy as np
-import math
 import matplotlib.pyplot as plt
-from numpy import unravel_index
 from interpolation import force_coeffs_10MW
 
 # Giver figurer i bedre kvalitet når de vises i Spyder og når de gemmes (kan evt. sættes op til 500)
@@ -43,7 +40,7 @@ for i in range(np.size(files)):
 
 # Airfoil data
 airfoils = np.loadtxt('bladedat.txt',skiprows=0)
-r,beta,c,tc = airfoils.T
+r,beta_deg,c,tc = airfoils.T
 
 
 #%%
@@ -66,8 +63,8 @@ rho=1.225 # kg/m**3
 omega= 7.229*2*np.pi/60 # rad/s
 # omega = 9.6*2*np.pi/60 # rad/s gammel opgave
 delta_t=0.15 # s
-timerange=200
-wind_shear=0
+timerange=1200
+wind_shear=0.2
 V_0=9 # mean windspeed at hub height m/s
 
 a1=np.array([[1,0,0],
@@ -111,6 +108,9 @@ CP_arr = np.zeros([timerange])
 
 # Blade position: 2D array (blade number, time)
 theta_blade_arr = np.zeros([B,timerange])
+theta_blade_arr[1,0] = 2*np.pi/3
+theta_blade_arr[2,0] = 4*np.pi/3
+
 
 # All V's, W's, p's
 # 3D array (airfoil number, blade number, time)
@@ -125,6 +125,7 @@ V0z_arr = np.zeros([len(airfoils), B, timerange])
 V_rel_y_arr = np.zeros([len(airfoils), B, timerange])
 V_rel_z_arr = np.zeros([len(airfoils), B, timerange])
 
+
 Wy_arr = np.zeros([len(airfoils), B, timerange])
 Wz_arr = np.zeros([len(airfoils), B, timerange])
 
@@ -134,25 +135,28 @@ pn_arr = np.zeros([len(airfoils), B, timerange])
 
 #%% Loop
 
-for n in range(timerange):
+for n in range(1,timerange):
     
     time_arr[n] = n*delta_t
+    
+    
+    if 100 <= time_arr[n] <= 150:
+        theta_pitch= np.deg2rad(2)    
+    elif 150 < time_arr[n]:
+        theta_pitch= 0
+        
     
     for i in range(B):
         
         # If statements fortæller hvordan azimutten (theta_blade) skal sættes
         # afhængigt af hvad nummer vinge, vi kigger på
         
-        # Initialisering af første blade til 0 grader når tiden starter
-        if n == 0 and i == 0:
-            theta_blade_arr[i,n] = omega * delta_t
-        # Udregning for de andre blades
-        elif i == 0:
+        if i == 0:
             theta_blade_arr[i,n] = theta_blade_arr[0,n-1] + omega * delta_t
         elif i == 1:
-            theta_blade_arr[i,n] = theta_blade_arr[0,n] + omega * delta_t + 0.66 * np.pi
+            theta_blade_arr[i,n] = theta_blade_arr[0,n] + omega * delta_t + 0.666 * np.pi
         elif i == 2:
-            theta_blade_arr[i,n] = theta_blade_arr[0,n] + omega * delta_t + 1.33 * np.pi
+            theta_blade_arr[i,n] = theta_blade_arr[0,n] + omega * delta_t + 1.333 * np.pi
         
         
         a23 = np.array([[np.cos(theta_blade_arr[i,n]),np.sin(theta_blade_arr[i,n]),0],
@@ -165,7 +169,7 @@ for n in range(timerange):
         a41=np.transpose(a14)
         
         for k in range(len(r)):
-        
+                        
             rb1 = a41 @ np.array([r[k],0,0])
             
             r1 = rt1 + rs1 + rb1
@@ -174,7 +178,7 @@ for n in range(timerange):
             y1_arr[k, i, n] = r1[1]
             z1_arr[k, i, n] = r1[2]
             
-            # Wind sheer. V_0 skal erstattes med et array af windspeeds i sidste opgave
+            # Wind shear. V_0 skal erstattes med et array af windspeeds i sidste opgave
             V0_array = np.array([0,0,V_0 * (x1_arr[k, i, n]/H)**wind_shear])
             
             # Går til system 4
@@ -185,16 +189,10 @@ for n in range(timerange):
             V0z_arr[k, i, n] = V0_4[2]
             
             
-            
-            # If statement: Ved første tidsskridt er den forrige værdi af W'erne lig 0
             # Kommentar til r: Vi bruger r i nedenstående fordi den allerede er givet i system 4,
             # hvilket vores relative hastigheder også er
-            if n == 0:
-                V_rel_y_arr[k, i, n] = V0y_arr[k, i, n] - omega * r[k] * np.cos(theta_cone)
-                V_rel_z_arr[k, i, n] = V0z_arr[k, i, n]
-            else:
-                V_rel_y_arr[k, i, n] = V0y_arr[k, i, n] + Wy_arr[k, i, n-1] - omega * r[k] * np.cos(theta_cone)
-                V_rel_z_arr[k, i, n] = V0z_arr[k, i, n] + Wz_arr[k, i, n-1]
+            V_rel_y_arr[k, i, n] = V0y_arr[k, i, n] + Wy_arr[k, i, n-1] - omega * r[k] * np.cos(theta_cone)
+            V_rel_z_arr[k, i, n] = V0z_arr[k, i, n] + Wz_arr[k, i, n-1]
                 
             # if k==17:
                 # print(V_rel_z_arr[k, i, n]/(-V_rel_y_arr[k, i, n]))
@@ -204,26 +202,25 @@ for n in range(timerange):
             phi = np.arctan(V_rel_z_arr[k, i, n]/(-V_rel_y_arr[k, i, n]))
             
             
-            aoa_deg = np.rad2deg(phi) - (beta[k] + np.rad2deg(theta_pitch))
+            aoa_deg = np.rad2deg(phi) - (beta_deg[k] + np.rad2deg(theta_pitch))
             
             # cl, cd, cm skal opdateres til cl, cd, cm, _, _, _ senere
             # Index af tc skal sættes til nummer airfoil
             cl, cd, cm = force_coeffs_10MW(aoa_deg, tc[k], aoa_tab, cl_stat_tab, cd_stat_tab, cm_stat_tab)
-            
-            V_rel_abs = np.sqrt(V_rel_y_arr[k, i, n]**2 + V_rel_y_arr[k, i, n]**2)
-            
-            # V_rel_abs = np.sqrt(V_rel_y_arr[k, i, n]**2 + V_rel_z_arr[k, i, n]**2)
+                                    
+            V_rel_abs = np.sqrt(V_rel_y_arr[k, i, n]**2 + V_rel_z_arr[k, i, n]**2)
                         
             # V_0 er konstant nu, men skal opdateres til en liste når turbulens tages med
-            a = Wz_arr[k, i, n]/V_0
+                        
+            a = -Wz_arr[k, i, n-1]/V_0
             
             if a <= 0.33:
                 f_g=1
             else:
                 f_g=0.25*(5-3*a)
             
-            V_f_W = np.sqrt(V0y_arr[k, i, n]**2 + (V0z_arr[k, i, n] + f_g * Wz_arr[k, i, n])**2)
-                        
+            V_f_W = np.sqrt(V0y_arr[k, i, n]**2 + (V0z_arr[k, i, n] + f_g * Wz_arr[k, i, n-1])**2)
+            
             l = 0.5 * rho * V_rel_abs**2 * c[k] * cl
             d = 0.5 * rho * V_rel_abs**2 * c[k] * cd
            
@@ -235,16 +232,20 @@ for n in range(timerange):
                 p_y = l * np.sin(phi) - d * np.cos(phi)
             
             # Gemmer normal og tangential loads for hvert blad
-            
+                        
             pt_arr[k, i, n]=p_y
             pn_arr[k, i, n]=p_z
-                        
-            F = (2/np.pi) * np.arccos(np.exp(-(B/2) * ((R-r[k])/(r[k] * np.sin(abs(phi))))))
-                        
+            
+            # F = 1
+            # Når man laver 
+            if np.sin(abs(phi)) <= 0.01 or R-r[k] <= 0.005:
+                F = 1
+            else:
+                F = (2/np.pi) * np.arccos(np.exp(-(B/2) * ((R-r[k])/(r[k] * np.sin(abs(phi))))))
             
             W_z_qs = (-B * l * np.cos(phi))/(4 * np.pi * rho * r[k] * F * V_f_W)
-            
             W_y_qs = (-B * l * np.sin(phi))/(4 * np.pi * rho * r[k] * F * V_f_W)
+            
             
             # Når vi ikke har timefilter på endnu
             
@@ -253,12 +254,12 @@ for n in range(timerange):
             
        
     # OBS: i stedet for at gange op til 3 blades så prøv at summér med de faktiske værdier
-    # M_r = B * np.trapz(pt_arr[:,0,n]*r,r)
-    M_r = np.trapz(np.sum(pt_arr,axis=1)[:,n]*r,r)
+    M_r = B * np.trapz(pt_arr[:,0,n]*r,r)
+    # M_r = np.trapz(np.sum(pt_arr,axis=1)[:,n]*r,r)
     
     P_arr[n] = omega*M_r
-    # T = B*np.trapz(pn_arr[:,0,n],r)
-    T = np.trapz(np.sum(pn_arr,axis=1)[:,n],r)
+    T = B*np.trapz(pn_arr[:,0,n],r)
+    # T = np.trapz(np.sum(pn_arr,axis=1)[:,n],r)
     T_arr[n] = T
     
     
@@ -271,6 +272,7 @@ plt.grid()
 plt.title('Blade position')
 for i in range(B):
     plt.plot(time_arr, np.rad2deg(theta_blade_arr[i,:]),label='Blade {}'.format(i+1))
+plt.xlim([0,max(time_arr)])
 plt.xlabel('Time [s]')
 plt.ylabel('$\Theta_b$ [deg]')
 plt.legend()
@@ -283,7 +285,7 @@ plt.grid()
 plt.title('Blade position, airfoil {} (1-based indexing)'.format(blade_element+1))
 # For de tre vinger
 for i in range(B):
-    plt.plot(x1_arr[blade_element,i,:], y1_arr[blade_element,i,:],linewidth=7-3*i,label='Blade {}'.format(i+1))
+    plt.plot(x1_arr[blade_element,i,1:], y1_arr[blade_element,i,1:],linewidth=7-3*i,label='Blade {}'.format(i+1))
 # Tilføjer r
 plt.plot([H,H+r[blade_element]],[0,0],label='r = {:.2f} m'.format(r[blade_element]))
 # Symmetriske axer for cirkel i stedet for oval form
@@ -305,10 +307,14 @@ for i in range(B):
     plt.plot(time_arr, x1_arr[blade_element,i,:],label='Blade {}'.format(i+1))
 # Tilføjer r
 plt.plot([max(time_arr)*2/3,max(time_arr)*2/3],[H-r[blade_element],H+r[blade_element]],'--',label='r = {:.2f} m'.format(r[blade_element]))
+plt.xlim([0,max(time_arr)])
 plt.xlabel('Time [s]')
 plt.ylabel('x [m]')
 plt.legend()
 plt.show()
+
+
+
 
 
 #%% Creating figure with subplots of T and P
@@ -321,6 +327,7 @@ ax1.set_xlabel('Time [s]')
 ax1.set_ylabel('Thrust [MN]', color=color)
 ax1.plot(time_arr, T_arr/(10**6), color=color)
 ax1.tick_params(axis='y', labelcolor=color)
+ax1.set_xlim([0,max(time_arr)])
 
 ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 
@@ -334,7 +341,11 @@ ax2.tick_params(axis='y', labelcolor=color)
 fig.tight_layout()  # otherwise the right y-label is slightly clipped
 plt.show()
 
-#%%
+#%% Loadings
+
+martin_py = np.loadtxt('martin_py.txt')
+martin_pz = np.loadtxt('martin_pz.txt')
+
 
 blade_number = 0
 plt.figure()
@@ -342,6 +353,21 @@ plt.grid()
 plt.title('Load distribution for blade {} (1-based indexing)'.format(blade_number+1))
 plt.plot(r,pn_arr[:, blade_number, -1],label='$p_n$',marker='o')
 plt.plot(r,pt_arr[:, blade_number, -1],label='$p_t$',marker='x')
+plt.plot(r,martin_py[:,0],label='Martins $p_t$',marker='*')
+plt.plot(r,martin_pz[:,0]*1000,label='Martins $p_n$',marker='|')
+plt.xlim(0)
+plt.xlabel('r [m]')
+plt.ylabel('p [N]')
+plt.legend()
+plt.show()
+
+#%%
+blade_number = 0
+plt.figure()
+plt.grid()
+plt.title('Load distribution for blade {} (1-based indexing)'.format(blade_number+1))
+plt.plot(r,Wy_arr[:, blade_number, -1],label='$W_y$',marker='o')
+plt.plot(r,Wz_arr[:, blade_number, -1],label='$W_z$',marker='x')
 plt.xlabel('r [m]')
 plt.ylabel('p [N]')
 plt.legend()
