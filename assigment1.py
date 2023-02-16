@@ -19,17 +19,17 @@ plt.rcParams.update({'font.size': 12})
 
 # if use_wind_shear = False then wind_shear = 0
 # if use_wind_shear = True then wind_shear = 0.2
-use_wind_shear = True
+use_wind_shear = False
 
 # if use_pitch = True then pitch is changed in time (see assignment description)
 # if use_pitch = False then the pitch is always 0
-use_pitch = True
+use_pitch = False
 
 # Dynamic wake filter
-use_dwf = True
+use_dwf = False
 
 # Dynamic stall
-use_stall = True
+use_stall = False
 
 #%% Force coeff files
 
@@ -422,18 +422,23 @@ plt.show()
 
 #%% Loadings
 
-martin_py = np.loadtxt('martin_py.txt')
-martin_pz = np.loadtxt('martin_pz.txt')
+# Loadings fra Martin
+# martin_py = np.loadtxt('martin_py.txt')
+# martin_pz = np.loadtxt('martin_pz.txt')
+
+
+# DTU rapport loadings
+dtu_r, dtu_pt, dtu_pn = np.loadtxt('wsp_9_spanwise_loads.DAT',unpack=True,usecols=(0,1,2))
 
 
 blade_number = 0
 plt.figure()
 plt.grid()
 plt.title('Load distribution for blade {} (1-based indexing)'.format(blade_number+1))
-plt.plot(r,pn_arr[:, blade_number, -1],label='$p_n$',marker='o')
-plt.plot(r,pt_arr[:, blade_number, -1],label='$p_t$',marker='x')
-# plt.plot(r,martin_py[:,0],label='Martins $p_t$',marker='*')
-# plt.plot(r,martin_pz[:,0]*1000,label='Martins $p_n$',marker='|')
+plt.plot(r,pn_arr[:, blade_number, -1],label='$p_{n,calculated}$',marker='o')
+plt.plot(r,pt_arr[:, blade_number, -1],label='$p_{t,calculatd}$',marker='x')
+plt.plot(dtu_r,dtu_pt,label='$p_{t,dtu}$',linestyle='--')
+plt.plot(dtu_r,dtu_pn,label='$p_{n,dtu}$',linestyle='--')
 plt.xlim(0)
 plt.xlabel('r [m]')
 plt.ylabel('p [N]')
