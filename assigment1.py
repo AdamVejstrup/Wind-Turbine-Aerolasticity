@@ -19,7 +19,7 @@ plt.rcParams.update({'font.size': 12})
 
 # if use_wind_shear = False then wind_shear = 0
 # if use_wind_shear = True then wind_shear = 0.2
-use_wind_shear = False
+use_wind_shear = True
 
 # if use_pitch = True then pitch is changed in time (see assignment description)
 # if use_pitch = False then the pitch is always 0
@@ -79,8 +79,8 @@ rho=1.225 # kg/m**3
 omega= 7.229*2*np.pi/60 # rad/s
 # omega = 9.6*2*np.pi/60 # rad/s gammel opgave
 delta_t=0.15 # s
-timerange=1200
-# timerange=200
+# timerange=1200
+timerange=200
 
 if use_wind_shear:
     wind_shear = 0.2
@@ -345,17 +345,26 @@ blade_element = 17
 plt.figure()
 plt.grid()
 # plt.title('Blade position, airfoil {} (1-based indexing)'.format(blade_element+1))
-plt.title('Blade position for the last blade element')
+plt.title('Blade position of the last blade element (system 1)')
 # For de tre vinger
 for i in range(B):
-    plt.plot(x1_arr[blade_element,i,1:], y1_arr[blade_element,i,1:],linewidth=7-3*i,label='Blade {}'.format(i+1))
+    # plt.plot(x1_arr[blade_element,i,1:], y1_arr[blade_element,i,1:],linewidth=7-3*i,label='Blade {}'.format(i+1))
+    plt.plot(y1_arr[blade_element,i,1:], x1_arr[blade_element,i,1:],linewidth=7-3*i,label='Blade {}'.format(i+1))
 # Tilføjer r
-plt.plot([H,H+r[blade_element]],[0,0],label='r = {:.2f} m'.format(r[blade_element]))
+plt.plot([0,r[blade_element]],[H,H],label='r = {:.2f} m'.format(r[blade_element]))
+# Tilføjer H
+plt.plot([0,0],[0,H],label='H = {} m'.format(H),color='black')
+
+# Ticks
+plt.xticks([-r[blade_element],0,r[blade_element]])
+plt.yticks([0,H-r[blade_element],H,H + r[blade_element]])
+
 # Symmetriske axer for cirkel i stedet for oval form
 plt.axis('scaled')
-plt.xlabel('x [m]')
-plt.ylabel('y [m]')
-plt.legend(loc='lower right')
+plt.ylabel('x [m]')
+plt.xlabel('y [m]')
+plt.ylim(bottom=0)
+plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
 plt.show()
 
 
@@ -365,17 +374,20 @@ blade_element = 17
 plt.figure()
 plt.grid()
 # plt.title('System 4 x-position for blade element {} (1-based indexing)'.format(blade_element+1))
-plt.title('System 4 x-position for the last blade element')
+plt.title('x-position of the last blade element (system 1)')
 # For de tre vinger
 for i in range(B):
     plt.plot(time_arr, x1_arr[blade_element,i,:],label='Blade {}'.format(i+1))
-# Tilføjer r
-plt.plot([max(time_arr)*2/3,max(time_arr)*2/3],[H-r[blade_element],H+r[blade_element]],'--',label='2$\cdot$r = {:.2f} m'.format(2*r[blade_element]))
-plt.xlim([0,max(time_arr)])
-plt.ylim(0)
+# Tilføjer r og periode
+time_period = 2*np.pi/omega
+plt.plot([2*time_period,2*time_period],[H-r[blade_element],H+r[blade_element]],'--',label='2$\cdot$r = {:.2f} m'.format(2*r[blade_element]))
+plt.plot([time_period,2*time_period],[H+r[blade_element],H+r[blade_element]],color='black',label='T = {:.2f} s'.format(time_period))
+plt.plot([time_period,time_period + time_period/3],[H+r[blade_element],H+r[blade_element]],'--',color='y',label='T/3 = {:.2f} s'.format(time_period/3))
+plt.xlim([0,30])
+plt.ylim(bottom=0)
 plt.xlabel('Time [s]')
 plt.ylabel('x [m]')
-plt.legend()
+plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
 plt.show()
 
 
@@ -470,6 +482,26 @@ plt.ylabel('Thrust [MN]')
 plt.xlim([0,time_arr[-1]])
 plt.legend()
 plt.show()
+
+
+#%%
+fig, (ax1,ax2) = plt.subplots(2,1,figsize=(10, 8),sharex=True)
+for i in range(B):
+    ax1.plot(time_arr, T_all_arr[i,:]/10**6,label='Blade {}'.format(i+1))
+    ax2.plot(time_arr, x1_arr[blade_element,i,:],label='Blade {}'.format(i+1))
+ax1.plot(time_arr, T_arr/(10**6),label = 'Total')
+ax1.set(title = 'Thrust', ylabel = 'Thrust [MN]',ylim=0)
+ax1.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
+ax1.grid()
+
+ax2.set(title = 'x-position', xlabel = 'Time [s]',ylabel = 'x [m]', xlim = [0,time_arr[-1]],ylim=0)
+ax2.grid()
+
+plt.show()
+
+
+
+
 
 
 
