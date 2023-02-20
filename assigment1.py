@@ -485,22 +485,34 @@ plt.show()
 
 
 #%%
-fig, (ax1,ax2) = plt.subplots(2,1,figsize=(10, 8),sharex=True)
-for i in range(B):
-    ax1.plot(time_arr, T_all_arr[i,:]/10**6,label='Blade {}'.format(i+1))
-    ax2.plot(time_arr, x1_arr[blade_element,i,:],label='Blade {}'.format(i+1))
-ax1.plot(time_arr, T_arr/(10**6),label = 'Total')
-ax1.set(title = 'Thrust', ylabel = 'Thrust [MN]',ylim=0)
-ax1.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
-ax1.grid()
+# fig, (ax1,ax2) = plt.subplots(2,1,figsize=(10, 8),sharex=True)
+# for i in range(B):
+#     ax1.plot(time_arr, T_all_arr[i,:]/10**6,label='Blade {}'.format(i+1))
+#     ax2.plot(time_arr, x1_arr[blade_element,i,:],label='Blade {}'.format(i+1))
+# ax1.plot(time_arr, T_arr/(10**6),label = 'Total')
+# ax1.set(title = 'Thrust', ylabel = 'Thrust [MN]',ylim=0)
+# ax1.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
+# ax1.grid()
 
-ax2.set(title = 'x-position', xlabel = 'Time [s]',ylabel = 'x [m]', xlim = [0,time_arr[-1]],ylim=0)
-ax2.grid()
+# ax2.set(title = 'x-position', xlabel = 'Time [s]',ylabel = 'x [m]', xlim = [0,time_arr[-1]],ylim=0)
+# ax2.grid()
+# plt.show()
 
-plt.show()
+# def relative_difference(x, y):
+#     """
+#     Calculates the relative difference between two values x and y.
+#     """
+#     average = (x + y) / 2
+#     absolute_difference = abs(x - y)
+#     relative_difference = absolute_difference / average
+#     return relative_difference*100
+
+# (T_arr[100:].max()-T_arr[100:].min())/1000
+# relative_difference(T_arr[100:].max(),T_arr[100:].min())
 
 
-
+# (T_all_arr[i,100:].max()-T_all_arr[i,100:].min())/1000
+# relative_difference(T_all_arr[i,100:].max(),T_all_arr[i,100:].min())
 
 
 
