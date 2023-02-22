@@ -8,6 +8,9 @@ Created on Wed Feb  1 11:09:29 2023
 import numpy as np
 import matplotlib.pyplot as plt
 from interpolation import force_coeffs_10MW
+from load_turbulence_box import load
+from scipy.interpolate import interp2d
+from scipy import signal
 
 # Giver figurer i bedre kvalitet når de vises i Spyder og når de gemmes (kan evt. sættes op til 500)
 plt.rcParams['figure.dpi'] = 300
@@ -19,7 +22,7 @@ plt.rcParams.update({'font.size': 12})
 
 # if use_wind_shear = False then wind_shear = 0
 # if use_wind_shear = True then wind_shear = 0.2
-use_wind_shear = True
+use_wind_shear = False
 
 # if use_pitch = True then pitch is changed in time (see assignment description)
 # if use_pitch = False then the pitch is always 0
@@ -30,6 +33,9 @@ use_dwf = False
 
 # Dynamic stall
 use_stall = False
+
+# Turbulent data
+use_turbulence = True
 
 #%% Force coeff files
 
@@ -78,9 +84,10 @@ rho=1.225 # kg/m**3
 
 omega= 7.229*2*np.pi/60 # rad/s
 # omega = 9.6*2*np.pi/60 # rad/s gammel opgave
-delta_t=0.15 # s
-# timerange=1200
-timerange=200
+
+delta_t=0.16666 # s
+timerange=4000
+# timerange=200
 
 if use_wind_shear:
     wind_shear = 0.2
@@ -92,6 +99,50 @@ V_0=9 # mean windspeed at hub height m/s
 # Dynamic wake filter constant
 k_dwf = 0.6
 
+#%% Turbulence box
+
+if use_turbulence:
+    #Defining size of box
+    n1=4096
+    n2=32
+    n3=32
+    
+    Lx=6142.5
+    Ly=180
+    Lz=180
+    
+    umean=9
+    
+    deltay=Ly/(n2-1)
+    deltax=Lx/(n1-1)
+    deltaz=Lz/(n3-1)
+    deltat=deltax/umean
+    
+    time=np.arange(deltat, n1*deltat+deltat, deltat)
+    
+    # Load in the files and reshape them into 3D
+    # turbulence er fordi filen ligger i en undermappe der hedder turbulence
+    u=load('turbulence/sim1.bin',  N=(n1, n2, n3))
+    
+    ushp = np.reshape(u, (n1, n2, n3))
+    
+    # Vi ændrer på dimensionerne: fra box til aflvering
+    # x bliver til z (tid)
+    # z bliver til x
+    # y bliver til y
+    
+    X_turb = np.arange(0,n2)*deltaz + (H - (n2-1)*deltaz/2) # Height
+    Y_turb = np.arange(0,n3)*deltay - ((n3-1) * deltay)/2 # Width
+    Z_turb = np.arange(0,n1)*deltax # Depth (Time)
+    
+    # Plot a countour
+    fig,ax=plt.subplots(1,1)
+    cp = ax.contourf(Y_turb,X_turb, ushp[1000,:,:])
+    fig.colorbar(cp) # Add a colorbar to a plot
+    ax.set_title('Filled Contours Plot')
+    ax.set_xlabel('y [m]')
+    ax.set_ylabel('x [m]')
+    plt.show()
 
 
 #%% Transformation matrices
@@ -171,7 +222,6 @@ cl_arr = np.zeros([len(airfoils), B, timerange])
 
 
 
-
 #%% Loop
 
 for n in range(1,timerange):
@@ -184,7 +234,12 @@ for n in range(1,timerange):
             theta_pitch= np.deg2rad(2)    
         elif 150 < time_arr[n]:
             theta_pitch= 0
-            
+    
+    if use_turbulence:
+        
+        # Turbulent box har tiden som første koordinat
+        # og ikke som sidste koordinat som vi plejer
+        f2d = interp2d(X_turb,Y_turb,ushp[n,:,:],kind='linear')
     
     for i in range(B):
         
@@ -219,7 +274,19 @@ for n in range(1,timerange):
             z1_arr[k, i, n] = r1[2]
             
             # Wind shear. V_0 skal erstattes med et array af windspeeds i sidste opgave
-            V0_array = np.array([0,0,V_0 * (x1_arr[k, i, n]/H)**wind_shear])
+            
+            if use_turbulence:
+                    
+                turb = f2d([x1_arr[k, i, n]],[y1_arr[k, i, n]])[0]
+                # turb = f2d(x1_arr[k, i, n],y1_arr[k, i, n])
+                
+                # v_arr[n] = f([x_arr[n]],[y_arr[n]])
+                # v_arr_point[n] = f(point_x,point_y)
+                
+                V0_array = np.array([0,0,turb + V_0 * (x1_arr[k, i, n]/H)**wind_shear])
+                
+            else:
+                V0_array = np.array([0,0,V_0 * (x1_arr[k, i, n]/H)**wind_shear])
             
             # Går til system 4
             V0_4 = a14 @ V0_array
@@ -391,9 +458,6 @@ plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
 plt.show()
 
 
-
-
-
 #%% Creating figure with subplots of T and P
 fig,(ax1,ax3) = plt.subplots(2,1,figsize=(10, 8))
 
@@ -482,7 +546,72 @@ plt.ylabel('Thrust [MN]')
 plt.xlim([0,time_arr[-1]])
 plt.legend()
 plt.show()
+#%% 
 
+if use_turbulence:
+    
+    blade_element = 8
+    blade_number = 0
+    plt.figure()
+    plt.grid()
+    plt.title('Loading blade {}, r = {:.2f} (turbulent wind)'.format(blade_number+1, r[blade_element]))
+    plt.plot(time_arr,pn_arr[blade_element,blade_number,:])
+    plt.xlabel('Time [s]')
+    plt.ylabel('$P_{n}$ [N]')
+    plt.show()
+
+    # Picking a point on the velocity plane
+    # sig=ushp[:,point_x,point_y]
+    
+    fs=1/(time_arr[1]-time_arr[0])
+    
+    #Compute and plot the power spectral density. 
+    pn_freq, pn_psd = signal.welch(pn_arr[blade_element,blade_number,:], fs, nperseg=1024)
+    fig,ax=plt.subplots(1,1)
+    plt.plot(pn_freq*2*np.pi/omega, pn_psd, label='Blade')
+    # plt.yscale('log')
+    plt.xlim([0,5])
+    # plt.axvline(omega/(2*np.pi),color='black')
+    # plt.axvline(omega/np.pi,color='black')
+    plt.grid()
+    plt.legend()
+    plt.xlabel('$f2 \pi / \omega$')
+    plt.ylabel('PSD ')
+    plt.show()
+
+    #Compute and plot the power spectral density. 
+    T_freq, T_psd = signal.welch(T_arr, fs, nperseg=1024)
+    fig,ax=plt.subplots(1,1)
+    plt.plot(T_freq*2*np.pi/omega, T_psd, label='Blade')
+    # plt.yscale('log')
+    plt.xlim([0,5])
+    # plt.axvline(omega/(2*np.pi),color='black')
+    # plt.axvline(omega/np.pi,color='black')
+    plt.grid()
+    plt.legend()
+    plt.xlabel('$f2 \pi / \omega$')
+    plt.ylabel('PSD ')
+    plt.show()
+
+    #Compute and plot the power spectral density.
+    
+    T_freq, T_psd = signal.welch(V0z_arr[blade_element,blade_number,:], fs, nperseg=1024)
+    fig,ax=plt.subplots(1,1)
+    plt.plot(T_freq*2*np.pi/omega, T_psd, label='Blade')
+    # plt.yscale('log')
+    plt.xlim([0,5])
+    # plt.axvline(omega/(2*np.pi),color='black')
+    # plt.axvline(omega/np.pi,color='black')
+    plt.grid()
+    plt.legend()
+    plt.xlabel('$f2 \pi / \omega$')
+    plt.ylabel('PSD ')
+    plt.show()
+    
+    
+    
+
+    
 
 #%%
 # fig, (ax1,ax2) = plt.subplots(2,1,figsize=(10, 8),sharex=True)
