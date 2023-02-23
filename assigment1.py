@@ -85,6 +85,7 @@ rho=1.225 # kg/m**3
 omega= 7.229*2*np.pi/60 # rad/s
 # omega = 9.6*2*np.pi/60 # rad/s gammel opgave
 
+
 delta_t=0.16666 # s
 timerange=4000
 # timerange=200
@@ -102,23 +103,32 @@ k_dwf = 0.6
 #%% Turbulence box
 
 if use_turbulence:
-    #Defining size of box
-    n1=4096
-    n2=32
-    n3=32
+  
+    # Reading in parameters for the turbulent box
+    turbulence_parameters = np.genfromtxt('turbulence/inputEx3.INP')
     
-    Lx=6142.5
-    Ly=180
-    Lz=180
+    # Dimensionerne skal være ints. Disse er punkterne i boxen
+    n1,n2,n3 = turbulence_parameters[2:5].astype(int)
     
-    umean=9
+    # Disse er længdedimensionerne af boxen
+    Lx,Ly,Lz = turbulence_parameters[5:8]
     
+    # Middel wind speed fra boxen. Skal matche middel wind speed fra scriptet her
+    # Hvis disse to ikke ens, gives der en fejlmeddelelse
+    umean = turbulence_parameters[9]
+    if not np.isclose(umean,V_0):
+        raise ValueError('The mean wind speed umean from the turbulent box does not match the V_0 in this script')
+
     deltay=Ly/(n2-1)
     deltax=Lx/(n1-1)
     deltaz=Lz/(n3-1)
     deltat=deltax/umean
     
-    time=np.arange(deltat, n1*deltat+deltat, deltat)
+    # Ligesom for middelvinden skal der være overensstemmelse mellem deltat fra turbulent
+    # box og delta_t fra dette script
+    deltat_threshold = 3 # digits (Denne threshold er sat for at undgå ValueError ved f.eks. 0.16666 og 0.16666666666666666)
+    if not np.isclose(round(deltat,deltat_threshold),round(delta_t,deltat_threshold)):
+        raise ValueError('Mismatch between deltat from turbulent box and delta_t in this script')
     
     # Load in the files and reshape them into 3D
     # turbulence er fordi filen ligger i en undermappe der hedder turbulence
@@ -135,11 +145,14 @@ if use_turbulence:
     Y_turb = np.arange(0,n3)*deltay - ((n3-1) * deltay)/2 # Width
     Z_turb = np.arange(0,n1)*deltax # Depth (Time)
     
-    # Plot a countour
+    # Plot a contour
+    plane_number = 1000
+    plane_time = deltat * plane_number
+    
     fig,ax=plt.subplots(1,1)
-    cp = ax.contourf(Y_turb,X_turb, ushp[1000,:,:])
-    fig.colorbar(cp) # Add a colorbar to a plot
-    ax.set_title('Filled Contours Plot')
+    cp = ax.contourf(Y_turb,X_turb, ushp[plane_number,:,:])
+    fig.colorbar(cp,label=f'Turbulence [m/s] at t = {plane_time:.1f} s') # Add a colorbar to a plot
+    ax.set_title(f'Wind speed = {umean} m/s + turbulence')
     ax.set_xlabel('y [m]')
     ax.set_ylabel('x [m]')
     plt.show()
@@ -222,12 +235,12 @@ cl_arr = np.zeros([len(airfoils), B, timerange])
 
 
 
-#%% Loop
+#%% Looping over time, blades, airfoils
 
 for n in range(1,timerange):
+    #%% Time loop
     
     time_arr[n] = n*delta_t
-    
     
     if use_pitch:
         if 100 <= time_arr[n] <= 150:
@@ -242,6 +255,7 @@ for n in range(1,timerange):
         f2d = interp2d(X_turb,Y_turb,ushp[n,:,:],kind='linear')
     
     for i in range(B):
+        #%% Blade loop
         
         # If statements fortæller hvordan azimutten (theta_blade) skal sættes
         # afhængigt af hvad nummer vinge, vi kigger på
@@ -264,6 +278,7 @@ for n in range(1,timerange):
         a41=np.transpose(a14)
         
         for k in range(len(r)):
+            #%% Airfoil loop
                         
             rb1 = a41 @ np.array([r[k],0,0])
             
@@ -376,14 +391,13 @@ for n in range(1,timerange):
             else:
                 Wz_arr[k, i, n] = Wz_qs_arr[k, i, n]
                 Wy_arr[k, i, n] = Wy_qs_arr[k, i, n]
-            
-       
-    # OBS: i stedet for at gange op til 3 blades så prøv at summér med de faktiske værdier
-    # M_r = B * np.trapz(pt_arr[:,0,n]*r,r)
-    M_r = np.trapz(np.sum(pt_arr,axis=1)[:,n]*r,r)
     
+    #%% Power and Thrust
+       
+    # OBS: i stedet for at gange op til 3 blades så summeres de faktiske værdier
+    M_r = np.trapz(np.sum(pt_arr,axis=1)[:,n]*r,r)
     P_arr[n] = omega*M_r
-    # T = B*np.trapz(pn_arr[:,0,n],r)
+
     T_all_arr[0,n] = np.trapz(pn_arr[:,0,n],r)
     T_all_arr[1,n] = np.trapz(pn_arr[:,1,n],r)
     T_all_arr[2,n] = np.trapz(pn_arr[:,2,n],r)
@@ -392,22 +406,7 @@ for n in range(1,timerange):
     T_arr[n] = T
     
     
-    
-    
-#%% Hvordan theta udvikler sig i tid, nok ikke så brugbart    
-
-plt.figure()
-plt.grid()
-plt.title('Blade position')
-for i in range(B):
-    plt.plot(time_arr, np.rad2deg(theta_blade_arr[i,:]),label='Blade {}'.format(i+1))
-plt.xlim([0,max(time_arr)])
-plt.xlabel('Time [s]')
-plt.ylabel('$\Theta_b$ [deg]')
-plt.legend()
-plt.show()
-
-#%% x og y position sammmen for en given airfoil
+#%% Plot x og y position sammmen for en given airfoil
 blade_element = 17
 plt.figure()
 plt.grid()
@@ -478,7 +477,6 @@ ax2.plot(time_arr, P_arr/(10**6), color=color)
 ax2.set_yticks(np.linspace(ax2.get_yticks()[0],ax2.get_yticks()[-1],len(ax1.get_yticks())))
 ax2.tick_params(axis='y', labelcolor=color)
 
-
 blade_element = 8
 ax3.set_title('Induced wind')
 ax3.plot(time_arr,Wy_arr[blade_element, 0, :],label='$W_y$')
@@ -496,16 +494,14 @@ ax3.legend(loc='center left')
 fig.tight_layout()  # otherwise the right y-label is slightly clipped
 plt.show()
 
-#%% Loadings
+#%% Plot af loadings
 
 # Loadings fra Martin
 # martin_py = np.loadtxt('martin_py.txt')
 # martin_pz = np.loadtxt('martin_pz.txt')
 
-
 # DTU rapport loadings
 dtu_r, dtu_pt, dtu_pn = np.loadtxt('wsp_9_spanwise_loads.DAT',unpack=True,usecols=(0,1,2))
-
 
 blade_number = 0
 plt.figure()
@@ -521,19 +517,7 @@ plt.ylabel('p [N]')
 plt.legend()
 plt.show()
 
-#%%
-blade_number = 0
-plt.figure()
-plt.grid()
-plt.title('Load distribution for blade {} (1-based indexing)'.format(blade_number+1))
-plt.plot(r,Wy_arr[:, blade_number, -1],label='$W_y$',marker='o')
-plt.plot(r,Wz_arr[:, blade_number, -1],label='$W_z$',marker='x')
-plt.xlabel('r [m]')
-plt.ylabel('p [N]')
-plt.legend()
-plt.show()
-
-#%% 
+#%% Plot af thrust for hver blade og for alle blades lagt sammen
 
 plt.figure()
 plt.grid()
@@ -546,7 +530,8 @@ plt.ylabel('Thrust [MN]')
 plt.xlim([0,time_arr[-1]])
 plt.legend()
 plt.show()
-#%% 
+
+#%% Turbulens plots
 
 if use_turbulence:
     
