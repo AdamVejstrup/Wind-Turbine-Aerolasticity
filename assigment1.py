@@ -24,6 +24,11 @@ plt.rcParams.update({'font.size': 12})
 # if use_wind_shear = True then wind_shear = 0.2
 use_wind_shear = False
 
+if use_wind_shear:
+    wind_shear = 0.2
+else:
+    wind_shear = 0
+
 # if use_pitch = True then pitch is changed in time (see assignment description)
 # if use_pitch = False then the pitch is always 0
 use_pitch = False
@@ -36,6 +41,14 @@ use_stall = False
 
 # Turbulent data
 use_turbulence = True
+
+# NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
+delta_t=0.16666 # s
+timerange=4000
+
+if use_turbulence and timerange < 4000:
+    raise ValueError('Timerange < 4000 does not work for turbulent wind')
+
 
 #%% Force coeff files
 
@@ -84,16 +97,6 @@ rho=1.225 # kg/m**3
 
 omega= 7.229*2*np.pi/60 # rad/s
 # omega = 9.6*2*np.pi/60 # rad/s gammel opgave
-
-
-delta_t=0.16666 # s
-timerange=4000
-# timerange=200
-
-if use_wind_shear:
-    wind_shear = 0.2
-else:
-    wind_shear = 0
 
 V_0=9 # mean windspeed at hub height m/s
 
@@ -152,6 +155,13 @@ if use_turbulence:
     fig,ax=plt.subplots(1,1)
     cp = ax.contourf(Y_turb,X_turb, ushp[plane_number,:,:])
     fig.colorbar(cp,label=f'Turbulence [m/s] at t = {plane_time:.1f} s') # Add a colorbar to a plot
+    lwd = 3
+    ax.scatter([0],[H],color='white',s=100)
+    ax.plot([0,0],[H,H+R],color='white',linewidth = lwd)
+    ax.plot([0,R*np.sin(2*np.pi/3)],[H,H + R*np.cos(2*np.pi/3)],color='white',linewidth = lwd)
+    ax.plot([0,R*np.sin(4*np.pi/3)],[H,H + R*np.cos(4*np.pi/3)],color='white',linewidth = lwd)
+    ax.plot([0,0],[X_turb[0],H],color='white',linewidth = lwd)
+    ax.axis('scaled')
     ax.set_title(f'Wind speed = {umean} m/s + turbulence')
     ax.set_xlabel('y [m]')
     ax.set_ylabel('x [m]')
@@ -374,7 +384,7 @@ for n in range(1,timerange):
             Wy_qs_arr[k, i, n] = (-B * l * np.sin(phi))/(4 * np.pi * rho * r[k] * F * V_f_W)
             
             
-            # Når vi ikke har timefilter på endnu
+            # Dynamic wave filter
             if use_dwf:
                 tau_1 = 1.1/(1-1.3*a)*R/V_0
                 tau_2 = (0.39 - 0.26 * (r[k]/R)**2)*tau_1
@@ -387,7 +397,8 @@ for n in range(1,timerange):
                 
                 Wy_arr[k, i, n] = Wy_int_arr[k, i, n] + (Wy_arr[k, i, n-1] - Wy_int_arr[k, i, n])*np.exp(-delta_t/tau_2)
                 Wz_arr[k, i, n] = Wz_int_arr[k, i, n] + (Wz_arr[k, i, n-1] - Wz_int_arr[k, i, n])*np.exp(-delta_t/tau_2)
-                
+            
+            # Uden dynamic wave filter
             else:
                 Wz_arr[k, i, n] = Wz_qs_arr[k, i, n]
                 Wy_arr[k, i, n] = Wy_qs_arr[k, i, n]
@@ -513,7 +524,7 @@ plt.plot(dtu_r,dtu_pt,label='$p_{t,dtu}$',linestyle='--')
 plt.plot(dtu_r,dtu_pn,label='$p_{n,dtu}$',linestyle='--')
 plt.xlim(0)
 plt.xlabel('r [m]')
-plt.ylabel('p [N]')
+plt.ylabel('p [N/m]')
 plt.legend()
 plt.show()
 
@@ -535,68 +546,61 @@ plt.show()
 
 if use_turbulence:
     
+    #%% Plotting p_n in time with turbulence for a given blade and a given airfoil
+    
+    # Need to discard the first few seconds to avoid the transcient part which
+    # has a hight impact on the psd. Seconds to discard:
+    sec_to_dis = 5
+    # observations to discard
+    obs_to_dis = int(sec_to_dis/deltat)
+    
+    # NB: Check on the time plot, that the transient part is gone
+    
     blade_element = 8
     blade_number = 0
     plt.figure()
     plt.grid()
     plt.title('Loading blade {}, r = {:.2f} (turbulent wind)'.format(blade_number+1, r[blade_element]))
-    plt.plot(time_arr,pn_arr[blade_element,blade_number,:])
+    plt.plot(time_arr[obs_to_dis:],pn_arr[blade_element,blade_number,obs_to_dis:])
     plt.xlabel('Time [s]')
-    plt.ylabel('$P_{n}$ [N]')
+    plt.xlim(obs_to_dis,time_arr[-1])
+    plt.ylabel('$P_{n}$ [N/m]')
     plt.show()
 
-    # Picking a point on the velocity plane
-    # sig=ushp[:,point_x,point_y]
+    #%% Power spectral density for P_n
     
+    # Frequency for psd
     fs=1/(time_arr[1]-time_arr[0])
     
+    #Compute and plot the power spectral density using welch
+    pn_freq, pn_psd = signal.welch(pn_arr[blade_element,blade_number,obs_to_dis:], fs, nperseg=1024)
+    
+    fig,ax=plt.subplots(1,1)
+    ax.plot(pn_freq*2*np.pi/omega, pn_psd/(10**6))
+    ax.set(xlim = [0,5], xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(MN/m)^{2} / Hz$]')
+    
+    # Sætter y lim, så den er lidt højere end peaket
+    ylim_filter = (pn_freq*2*np.pi/omega) > 1
+    ax.set_ylim(0,pn_psd[ylim_filter].max()*1.1/10**6)
+    
+    ax.set_title('Power spectral density of $p_n$')
+    ax.grid()
+    plt.show()
+
+    #%%
     #Compute and plot the power spectral density. 
-    pn_freq, pn_psd = signal.welch(pn_arr[blade_element,blade_number,:], fs, nperseg=1024)
+    T_freq, T_psd = signal.welch(T_arr[obs_to_dis:], fs, nperseg=1024)
     fig,ax=plt.subplots(1,1)
-    plt.plot(pn_freq*2*np.pi/omega, pn_psd, label='Blade')
-    # plt.yscale('log')
-    plt.xlim([0,5])
-    # plt.axvline(omega/(2*np.pi),color='black')
-    # plt.axvline(omega/np.pi,color='black')
-    plt.grid()
-    plt.legend()
-    plt.xlabel('$f2 \pi / \omega$')
-    plt.ylabel('PSD ')
+    plt.plot(T_freq*2*np.pi/omega, T_psd/(10**6), label='Blade')
+    ax.set(xlim = [0,5], xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(MN)^{2} / Hz$]')
+    
+    # Sætter y lim, så den er lidt højere end peaket
+    ylim_filter = (T_freq*2*np.pi/omega) > 1
+    ax.set_ylim(0,T_psd[ylim_filter].max()*1.1/10**6)
+    
+    ax.set_title('Power spectral density of total thrust')
+    ax.grid()
     plt.show()
-
-    #Compute and plot the power spectral density. 
-    T_freq, T_psd = signal.welch(T_arr, fs, nperseg=1024)
-    fig,ax=plt.subplots(1,1)
-    plt.plot(T_freq*2*np.pi/omega, T_psd, label='Blade')
-    # plt.yscale('log')
-    plt.xlim([0,5])
-    # plt.axvline(omega/(2*np.pi),color='black')
-    # plt.axvline(omega/np.pi,color='black')
-    plt.grid()
-    plt.legend()
-    plt.xlabel('$f2 \pi / \omega$')
-    plt.ylabel('PSD ')
-    plt.show()
-
-    #Compute and plot the power spectral density.
-    
-    T_freq, T_psd = signal.welch(V0z_arr[blade_element,blade_number,:], fs, nperseg=1024)
-    fig,ax=plt.subplots(1,1)
-    plt.plot(T_freq*2*np.pi/omega, T_psd, label='Blade')
-    # plt.yscale('log')
-    plt.xlim([0,5])
-    # plt.axvline(omega/(2*np.pi),color='black')
-    # plt.axvline(omega/np.pi,color='black')
-    plt.grid()
-    plt.legend()
-    plt.xlabel('$f2 \pi / \omega$')
-    plt.ylabel('PSD ')
-    plt.show()
-    
-    
-    
-
-    
 
 #%%
 # fig, (ax1,ax2) = plt.subplots(2,1,figsize=(10, 8),sharex=True)
@@ -627,12 +631,6 @@ if use_turbulence:
 
 # (T_all_arr[i,100:].max()-T_all_arr[i,100:].min())/1000
 # relative_difference(T_all_arr[i,100:].max(),T_all_arr[i,100:].min())
-
-
-
-
-
-
 
 
 
