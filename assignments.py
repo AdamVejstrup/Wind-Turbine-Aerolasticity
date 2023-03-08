@@ -29,7 +29,7 @@ if use_wind_shear:
 else:
     wind_shear = 0
 
-# if use_pitch = True then pitch is changed in time (see assignment description)
+# if use_pitch = True then pitch is changed in time (see assignment1 description)
 # if use_pitch = False then the pitch is always 0
 use_pitch = False
 
@@ -41,6 +41,9 @@ use_stall = False
 
 # Turbulent data
 use_turbulence = False
+
+#Sæt til True hvis pitch controller bruges. Hvis True så er omega varierende. 
+use_pitch_controller = True
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.16666 # s
@@ -91,24 +94,32 @@ A = R**2 *np.pi #m^2
 tilt_deg=-5 # grader   (bruges ikke i uge 1)
 lam_opt = 8 #
 P_rated = 10.64*10**6 #W
+rho=1.225 # kg/m**3
+V_0=9 # mean windspeed at hub height m/s
+
+K1 = np.deg2rad(14) # rad
+K_I = 0.64 # no unit
+K_P = 1.5 # s
 
 
 theta_cone=0 # radianer
 theta_yaw=np.deg2rad(0) # radianer
 theta_tilt=0 # radianer
 theta_pitch=0 # radianer
+theta_pitch_I=0 # radianer
 
-rho=1.225 # kg/m**3
 
-# omega= 7.229*2*np.pi/60 # rad/s
-# omega = 9.6*2*np.pi/60 # rad/s gammel opgave
-
-V_0=9 # mean windspeed at hub height m/s
+if use_pitch_controller:
+    omega = (lam_opt*V_0)/R 
+    
+else:
+    omega= 7.229*2*np.pi/60 # rad/s
+    
 
 # Dynamic wake filter constant
 k_dwf = 0.6
 
-omega = (lam_opt*V_0)/R 
+
 C_p_opt = 0.47 
 K = 0.5*rho*A*R**3 * (C_p_opt/lam_opt**3)
 # M_g = K * omega**2
@@ -122,41 +133,12 @@ omega_slut = 15*2*np.pi/60 #6rpm til rad/s
 
 omega_range = np.linspace(omega_start/omega_slut,100)
 
-M_g_arr = K * omega_range**2 + K * omega_rated**2
-
-low_mask = omega_range < omega_rated
-high_mask = omega_range >= omega_rated
-
-M_g = np.zeros(len(omega_range))
-
-M_g[low_mask] = (K * omega_range**2) [low_mask]
-
-M_g[high_mask] = (K * omega_range**2) [high_mask]
+M_g_arr = K * omega_range**2 
 
 plt.figure()
-plt.plot(omega_range,M_g)
+plt.plot(omega_range,M_g_arr)
 
 
-def M_g_plot(omega, omega_rated, K):
-    
-    low_mask = omega < omega_rated
-    high_mask = omega >= omega_rated
-    
-    M_g = np.zeros(len(omega))
-    
-    M_g[low_mask] = K * omega**2 [low_mask]
-    
-    M_g[high_mask] = K * omega_rated**2 [high_mask]
-    
-    return M_g
-    
-    
-    # if omega < omega_rated:
-    #     return K * omega**2
-    # else:
-    #     return K * omega_rated**2
-    
-M_g_range = M_g_plot(omega_range, omega_rated, K)    
 
 
 
@@ -302,6 +284,10 @@ pn_arr = np.zeros([len(airfoils), B, timerange])
 
 fs_arr = np.zeros([len(airfoils), B, timerange])
 cl_arr = np.zeros([len(airfoils), B, timerange])
+
+theta_pitch_arr = np.zeros(timerange)
+omega_arr = np.zeros(timerange)
+
 
 
 
@@ -479,6 +465,21 @@ for n in range(1,timerange):
     
     T = np.trapz(np.sum(pn_arr,axis=1)[:,n],r)
     T_arr[n] = T
+    
+    #%% update omega and pitch
+    
+    if use_pitch_controller:
+    
+        GK = (1/ (1 + (theta_pitch_arr[n]/K1)))
+        theta_pitch_P = GK * K_P * (omega_arr[n]-omega_ref)
+        theta_pitch_I = theta_pitch_I + GK * K_I * (omega_arr[n]-omega_ref) * delta_t
+        theta_pitch_arr[n] = theta_pitch_P + theta_pitch_I
+        
+        # implement resten af pitch controller code
+        
+        
+        
+    
     
     
 #%% Plot x og y position sammmen for en given airfoil
