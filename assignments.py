@@ -122,7 +122,7 @@ omega_slut = 15*2*np.pi/60 #6rpm til rad/s
 
 omega_range = np.linspace(omega_start/omega_slut,100)
 
-M_g_arr = K * omega_range**2 
+M_g_arr = K * omega_range**2 + K * omega_rated**2
 
 low_mask = omega_range < omega_rated
 high_mask = omega_range >= omega_rated
