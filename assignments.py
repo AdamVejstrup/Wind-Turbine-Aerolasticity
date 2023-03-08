@@ -40,12 +40,12 @@ use_dwf = False
 use_stall = False
 
 # Turbulent data
-use_turbulence = True
+use_turbulence = False
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.16666 # s
-timerange=4096
-# timerange=200
+# timerange=4096
+timerange=200
 
 if use_turbulence and timerange < 4000:
     raise ValueError('Timerange < 4000 does not work for turbulent wind')
@@ -87,7 +87,11 @@ B = 3 # Number of blades
 H=119  # Hub height m
 L_s=7.1  # Length of shaft m
 R=89.17 # Radius m
+A = R**2 *np.pi #m^2
 tilt_deg=-5 # grader   (bruges ikke i uge 1)
+lam_opt = 8 #
+P_rated = 10.64*10**6 #W
+
 
 theta_cone=0 # radianer
 theta_yaw=np.deg2rad(0) # radianer
@@ -96,13 +100,67 @@ theta_pitch=0 # radianer
 
 rho=1.225 # kg/m**3
 
-omega= 7.229*2*np.pi/60 # rad/s
+# omega= 7.229*2*np.pi/60 # rad/s
 # omega = 9.6*2*np.pi/60 # rad/s gammel opgave
 
 V_0=9 # mean windspeed at hub height m/s
 
 # Dynamic wake filter constant
 k_dwf = 0.6
+
+omega = (lam_opt*V_0)/R 
+C_p_opt = 0.47 
+K = 0.5*rho*A*R**3 * (C_p_opt/lam_opt**3)
+# M_g = K * omega**2
+
+omega_rated = (P_rated/K)**(1/3)
+M_g_max = K * omega_rated**2  #Vores max generator torque
+omega_ref = 1.02 * omega_rated #tommelfingerregel fra Martin
+
+omega_start = 6*2*np.pi/60 #6rpm til rad/s
+omega_slut = 15*2*np.pi/60 #6rpm til rad/s
+
+omega_range = np.linspace(omega_start/omega_slut,100)
+
+M_g_arr = K * omega_range**2 
+
+low_mask = omega_range < omega_rated
+high_mask = omega_range >= omega_rated
+
+M_g = np.zeros(len(omega_range))
+
+M_g[low_mask] = (K * omega_range**2) [low_mask]
+
+M_g[high_mask] = (K * omega_range**2) [high_mask]
+
+plt.figure()
+plt.plot(omega_range,M_g)
+
+
+def M_g_plot(omega, omega_rated, K):
+    
+    low_mask = omega < omega_rated
+    high_mask = omega >= omega_rated
+    
+    M_g = np.zeros(len(omega))
+    
+    M_g[low_mask] = K * omega**2 [low_mask]
+    
+    M_g[high_mask] = K * omega_rated**2 [high_mask]
+    
+    return M_g
+    
+    
+    # if omega < omega_rated:
+    #     return K * omega**2
+    # else:
+    #     return K * omega_rated**2
+    
+M_g_range = M_g_plot(omega_range, omega_rated, K)    
+
+
+
+        
 
 #%% Turbulence box
 
@@ -409,7 +467,11 @@ for n in range(1,timerange):
        
     # OBS: i stedet for at gange op til 3 blades så summeres de faktiske værdier
     M_r = np.trapz(np.sum(pt_arr,axis=1)[:,n]*r,r)
+    
+    # M_G = K * omega**2 
+    
     P_arr[n] = omega*M_r
+
 
     T_all_arr[0,n] = np.trapz(pn_arr[:,0,n],r)
     T_all_arr[1,n] = np.trapz(pn_arr[:,1,n],r)
