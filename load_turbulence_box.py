@@ -7,6 +7,7 @@ Created on Wed Feb 22 15:35:38 2023
 
 import numpy as np
 
+
 def load(filename, N=(32, 32)):
     """Load mann turbulence box
 
