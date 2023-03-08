@@ -44,7 +44,8 @@ use_turbulence = True
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.16666 # s
-timerange=4000
+timerange=4096
+# timerange=200
 
 if use_turbulence and timerange < 4000:
     raise ValueError('Timerange < 4000 does not work for turbulent wind')
@@ -222,6 +223,7 @@ x1_arr = np.zeros([len(airfoils), B, timerange])
 y1_arr = np.zeros([len(airfoils), B, timerange])
 z1_arr = np.zeros([len(airfoils), B, timerange])
 
+
 V0x_arr = np.zeros([len(airfoils), B, timerange])
 V0y_arr = np.zeros([len(airfoils), B, timerange])
 V0z_arr = np.zeros([len(airfoils), B, timerange])
@@ -246,7 +248,6 @@ cl_arr = np.zeros([len(airfoils), B, timerange])
 
 
 #%% Looping over time, blades, airfoils
-
 for n in range(1,timerange):
     #%% Time loop
     
@@ -263,6 +264,7 @@ for n in range(1,timerange):
         # Turbulent box har tiden som første koordinat
         # og ikke som sidste koordinat som vi plejer
         f2d = interp2d(X_turb,Y_turb,ushp[n,:,:],kind='linear')
+        
     
     for i in range(B):
         #%% Blade loop
@@ -517,9 +519,9 @@ dtu_r, dtu_pt, dtu_pn = np.loadtxt('wsp_9_spanwise_loads.DAT',unpack=True,usecol
 blade_number = 0
 plt.figure()
 plt.grid()
-plt.title('Load distribution for blade {} (1-based indexing)'.format(blade_number+1))
+plt.title('Load distribution for blade {}'.format(blade_number+1))
 plt.plot(r,pn_arr[:, blade_number, -1],label='$p_{n,calculated}$',marker='o')
-plt.plot(r,pt_arr[:, blade_number, -1],label='$p_{t,calculated}$',marker='x')
+plt.plot(r,pt_arr[:, blade_number, -1],label='$p_{t,calculated}$',marker='o')
 plt.plot(dtu_r,dtu_pt,label='$p_{t,dtu}$',linestyle='--')
 plt.plot(dtu_r,dtu_pn,label='$p_{n,dtu}$',linestyle='--')
 plt.xlim(0)
@@ -577,7 +579,7 @@ if use_turbulence:
     
     fig,ax=plt.subplots(1,1)
     ax.plot(pn_freq*2*np.pi/omega, pn_psd/(10**6))
-    ax.set(xlim = [0,5], xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(MN/m)^{2} / Hz$]')
+    ax.set(xlim = [0,10], xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(MN/m)^{2} / Hz$]')
     
     # Sætter y lim, så den er lidt højere end peaket
     ylim_filter = (pn_freq*2*np.pi/omega) > 1
@@ -592,30 +594,16 @@ if use_turbulence:
     T_freq, T_psd = signal.welch(T_arr[obs_to_dis:], fs, nperseg=1024)
     fig,ax=plt.subplots(1,1)
     plt.plot(T_freq*2*np.pi/omega, T_psd/(10**6), label='Blade')
-    ax.set(xlim = [0,5], xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(MN)^{2} / Hz$]')
-    
+    ax.set(xlim = [0,10], xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(MN)^{2} / Hz$]')
     # Sætter y lim, så den er lidt højere end peaket
     ylim_filter = (T_freq*2*np.pi/omega) > 1
     ax.set_ylim(0,T_psd[ylim_filter].max()*1.1/10**6)
-    
     ax.set_title('Power spectral density of total thrust')
     ax.grid()
     plt.show()
 
-#%%
-# fig, (ax1,ax2) = plt.subplots(2,1,figsize=(10, 8),sharex=True)
-# for i in range(B):
-#     ax1.plot(time_arr, T_all_arr[i,:]/10**6,label='Blade {}'.format(i+1))
-#     ax2.plot(time_arr, x1_arr[blade_element,i,:],label='Blade {}'.format(i+1))
-# ax1.plot(time_arr, T_arr/(10**6),label = 'Total')
-# ax1.set(title = 'Thrust', ylabel = 'Thrust [MN]',ylim=0)
-# ax1.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
-# ax1.grid()
 
-# ax2.set(title = 'x-position', xlabel = 'Time [s]',ylabel = 'x [m]', xlim = [0,time_arr[-1]],ylim=0)
-# ax2.grid()
-# plt.show()
-
+#%% Function to calcualte the relative difference between two numbers x and y
 # def relative_difference(x, y):
 #     """
 #     Calculates the relative difference between two values x and y.
@@ -625,6 +613,11 @@ if use_turbulence:
 #     relative_difference = absolute_difference / average
 #     return relative_difference*100
 
+# relative_difference(P_arr[-1], 5311.8*1000)
+# relative_difference(T_arr[-1], 1009.1*1000)
+
+
+
 # (T_arr[100:].max()-T_arr[100:].min())/1000
 # relative_difference(T_arr[100:].max(),T_arr[100:].min())
 
@@ -633,13 +626,119 @@ if use_turbulence:
 # relative_difference(T_all_arr[i,100:].max(),T_all_arr[i,100:].min())
 
 
+#%%
+
+# plt.rcParams['figure.dpi'] = 300
+# plt.rcParams['savefig.dpi'] = 300
+
+# tick_top = round(ushp.max()*1.05,1)
+# tick_bottom = round(ushp.min()*1.05,1)
+# ticks = np.linspace(tick_bottom, tick_top,8)
+
+# gif_time = 180
+
+# for n in range(1,gif_time):
+#     plane_number = n
+#     plane_time = deltat * plane_number
+    
+#     fig,ax=plt.subplots(1,1)
+#     cp = ax.contourf(Y_turb,X_turb, ushp[plane_number,:,:],ticks)
+#     cbar = fig.colorbar(cp, label=f'Turbulence [m/s] at t = {plane_time:.1f} s') # Add a colorbar to a plot
+#     lwd = 3
+#     # cbar.set_ticks(ticks)
+#     # ax.scatter([0],[H],color='white',s=100)
+#     # ax.plot([0,0],[H,H+R],color='white',linewidth = lwd)
+#     # ax.plot([0,R*np.sin(2*np.pi/3)],[H,H + R*np.cos(2*np.pi/3)],color='white',linewidth = lwd)
+#     # ax.plot([0,R*np.sin(4*np.pi/3)],[H,H + R*np.cos(4*np.pi/3)],color='white',linewidth = lwd)
+#     ax.plot([0,0],[X_turb[0],H],color='white',linewidth = lwd)
+#     ax.scatter(y1_arr[:,0,n],x1_arr[:,0,n],color='white')
+#     ax.scatter(y1_arr[:,1,n],x1_arr[:,1,n],color='white')
+#     ax.scatter(y1_arr[:,2,n],x1_arr[:,2,n],color='white')
+#     ax.axis('scaled')
+#     ax.set_title(f'Wind speed = {umean} m/s + turbulence')
+#     ax.set_xlabel('y [m]')
+#     ax.set_ylabel('x [m]')
+#     plt.savefig(f'animation/{n}.png')
+#     plt.show()
+
+
+#%%
+
+gif_time = 180
+
+plt.rcParams['figure.dpi'] = 300
+plt.rcParams['savefig.dpi'] = 300
+plt.rcParams["figure.autolayout"] = True
+
+for n in range(1,gif_time):
+    plane_number = n
+    plane_time = deltat * plane_number
+    
+    blade_element = 17
+    blade_number = 0
+    
+    fig,(ax1,ax2)=plt.subplots(1,2,figsize=[12,4],sharey=True)
+    
+    wing_style = {'color':'black',
+                  'marker':'o',
+                  'linewidth':3,
+                  'markerfacecolor': 'white',
+                  'markeredgecolor': 'black',
+                  'zorder':3}
+   
+    ax1.plot(y1_arr[:,0,n],x1_arr[:,0,n],**wing_style)
+    
+    # Point to follow on the blade
+    ax1.scatter(y1_arr[blade_element,blade_number,n],x1_arr[blade_element,blade_number,n],color='tab:blue',zorder=4)
+    ax1.plot(y1_arr[:,1,n],x1_arr[:,1,n],**wing_style)
+    ax1.plot(y1_arr[:,2,n],x1_arr[:,2,n],**wing_style)
+    ax1.plot([0,0],[H-R,H],color='black',linewidth=5,zorder=2,alpha=0.7)
+    ax1.axis('scaled')
+    ax1.set(xlim = [-R,R], ylim = [H-R,H+R])
+    ax1.set_xlabel('y [m]')
+    ax1.set_ylabel('x [m]')
+    ax1.set_title('Rotation in (y,x)-plane')
+    ax1.grid()
+    
+    for i in range(B):
+        ax2.plot(time_arr[1:n+1], x1_arr[blade_element,i,1:n+1],label='Blade {}'.format(i+1))
+        
+    ax2.scatter(time_arr[n], x1_arr[blade_element,blade_number,n],label='Blade {}, element {}'.format(blade_number+1,blade_element+1),zorder=4)
+    ax2.set(xlim = [0,30])
+    time_period = 2*np.pi/omega
+    
+    ax2.plot([2*time_period,2*time_period],[H-r[blade_element],H+r[blade_element]],'--',label='2$\cdot$r = {:.2f} m'.format(2*r[blade_element]))
+    ax2.plot([time_period/4,time_period/4+time_period],[H,H],color='black',label='T = {:.2f} s'.format(time_period))
+    ax2.plot([time_period/4,time_period/4+(time_period/3)],[H,H],'--',color='y',label='T/3 = {:.2f} s'.format(time_period/3))
+    ax2.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
+    ax2.set_xlabel('Time [s]')
+    ax2.grid()
+    ax2.set_title('Time series of x-position')
+    
+    # plt.savefig(f'animation/{n}.png')
+    plt.show()
+
+#%%
+
+import imageio
+# Build GIF
+
+# filename_list = os.listdir(folder)
+
+filename_list = ['animation/'+str(x)+'.png' for x in range(1,gif_time)]
+
+with imageio.get_writer('mygif.gif', mode='I') as writer:
+    for filename in filename_list:
+        image = imageio.imread(filename)
+        writer.append_data(image)
 
 
 
+ushp_std = np.std(ushp,axis=0)
 
+ushp_std_range = [np.min(ushp_std), np.max(ushp_std)]
 
+ushp_ti = ushp_std/umean*100
 
-
-
-
+ushp_ti_range = [np.min(ushp_ti), np.max(ushp_ti)]
 
