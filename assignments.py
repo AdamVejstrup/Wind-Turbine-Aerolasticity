@@ -129,17 +129,30 @@ M_g_max = K * omega_rated**2  #Vores max generator torque
 omega_ref = 1.02 * omega_rated #tommelfingerregel fra Martin
 
 omega_start = 6*2*np.pi/60 #6rpm til rad/s
-omega_slut = 15*2*np.pi/60 #6rpm til rad/s
+omega_slut = 11*2*np.pi/60 #6rpm til rad/s
 
-omega_range = np.linspace(omega_start/omega_slut,100)
+omega_range = np.linspace(omega_start, omega_slut, 100)
 
-M_g_arr = K * omega_range**2 
+low_mask = omega_range < omega_rated
+high_mask = omega_range >= omega_rated
+
+M_g = np.zeros(len(omega_range))
+
+M_g[low_mask] = (K * omega_range**2) [low_mask]
+
+M_g[high_mask] = K * omega_rated**2
 
 plt.figure()
-plt.plot(omega_range,M_g_arr)
-
-
-
+plt.grid()
+plt.title('Generator characteristic')
+plt.plot(omega_range,M_g/10**6, label = 'Generator torque')
+plt.ylabel('$M_{g} \; [MN \cdot m]$')
+plt.xlabel('$\omega$ [rad/s]')
+plt.axvline(omega_rated, label = 'Rated $\omega$ = {:.2f} rad/s'.format(omega_rated), color = 'grey', linestyle = '--')
+plt.xlim(omega_range[0], omega_range[-1])
+plt.legend()
+plt.show()
+        
 
 
         
