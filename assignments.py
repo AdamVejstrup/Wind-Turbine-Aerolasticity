@@ -82,9 +82,11 @@ airfoils = np.loadtxt('bladedat.txt',skiprows=0)
 r,beta_deg,c,tc = airfoils.T
 
 
-#%%
+#%% Konstanter
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
+
+V_0=15 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H=119  # Hub height m
@@ -95,22 +97,33 @@ tilt_deg=-5 # grader   (bruges ikke i uge 1)
 lam_opt = 8 #
 P_rated = 10.64*10**6 #W
 rho=1.225 # kg/m**3
-V_0=9 # mean windspeed at hub height m/s
+I_rotor = 1.6*10**8 #kg*m^2  inertia moment of the drivetrain
 
 K1 = np.deg2rad(14) # rad
 K_I = 0.64 # no unit
 K_P = 1.5 # s
 
+C_p_opt = 0.47 #optimal C_p for DTU 10MW
+K = 0.5*rho*A*R**3 * (C_p_opt/lam_opt**3) #konstant der bruges til at regne M_g
+omega_rated = (P_rated/K)**(1/3)  
+M_g_max = K * omega_rated**2  #Vores max generator torque
+omega_ref = 1.02 * omega_rated #tommelfingerregel fra Martin
+
 
 theta_cone=0 # radianer
 theta_yaw=np.deg2rad(0) # radianer
 theta_tilt=0 # radianer
-theta_pitch=0 # radianer
-theta_pitch_I=0 # radianer
+theta_p=0 # radianer
+theta_p_I=0 # radianer
+
+theta_p_max_ang = np.deg2rad(45) #radianer, max pitch vinkel
+theta_p_min_ang = 0 #radianer, min pitch vinkel
+theta_p_max_vel = np.deg2rad(9) #radianer, max pitch vinkel ændring per sekund
 
 
 if use_pitch_controller:
     omega = (lam_opt*V_0)/R 
+    # omega= 7.229*2*np.pi/60 # rad/s
     
 else:
     omega= 7.229*2*np.pi/60 # rad/s
@@ -119,40 +132,6 @@ else:
 # Dynamic wake filter constant
 k_dwf = 0.6
 
-
-C_p_opt = 0.47 
-K = 0.5*rho*A*R**3 * (C_p_opt/lam_opt**3)
-# M_g = K * omega**2
-
-omega_rated = (P_rated/K)**(1/3)
-M_g_max = K * omega_rated**2  #Vores max generator torque
-omega_ref = 1.02 * omega_rated #tommelfingerregel fra Martin
-
-omega_start = 6*2*np.pi/60 #6rpm til rad/s
-omega_slut = 11*2*np.pi/60 #6rpm til rad/s
-
-omega_range = np.linspace(omega_start, omega_slut, 100)
-
-low_mask = omega_range < omega_rated
-high_mask = omega_range >= omega_rated
-
-M_g = np.zeros(len(omega_range))
-
-M_g[low_mask] = (K * omega_range**2) [low_mask]
-
-M_g[high_mask] = K * omega_rated**2
-
-plt.figure()
-plt.grid()
-plt.title('Generator characteristic')
-plt.plot(omega_range,M_g/10**6, label = 'Generator torque')
-plt.ylabel('$M_{g} \; [MN \cdot m]$')
-plt.xlabel('$\omega$ [rad/s]')
-plt.axvline(omega_rated, label = 'Rated $\omega$ = {:.2f} rad/s'.format(omega_rated), color = 'grey', linestyle = '--')
-plt.xlim(omega_range[0], omega_range[-1])
-plt.legend()
-plt.show()
-        
 
 
         
@@ -298,7 +277,8 @@ pn_arr = np.zeros([len(airfoils), B, timerange])
 fs_arr = np.zeros([len(airfoils), B, timerange])
 cl_arr = np.zeros([len(airfoils), B, timerange])
 
-theta_pitch_arr = np.zeros(timerange)
+theta_p_arr = np.zeros(timerange)
+theta_p_arr[0] = np.deg2rad(25) 
 omega_arr = np.zeros(timerange)
 
 
@@ -312,9 +292,9 @@ for n in range(1,timerange):
     
     if use_pitch:
         if 100 <= time_arr[n] <= 150:
-            theta_pitch= np.deg2rad(2)    
+            theta_p= np.deg2rad(2)    
         elif 150 < time_arr[n]:
-            theta_pitch= 0
+            theta_p= 0
     
     if use_turbulence:
         
@@ -387,7 +367,10 @@ for n in range(1,timerange):
 
             phi = np.arctan(V_rel_z_arr[k, i, n]/(-V_rel_y_arr[k, i, n]))
             
-            aoa_deg = np.rad2deg(phi) - (beta_deg[k] + np.rad2deg(theta_pitch))
+            if use_pitch_controller:
+                aoa_deg = np.rad2deg(phi) - (beta_deg[k] + np.rad2deg(theta_p_arr[n-1]))
+            else:
+                aoa_deg = np.rad2deg(phi) - (beta_deg[k] + np.rad2deg(theta_p))
             
             # cl, cd, cm skal opdateres til cl, cd, cm, _, _, _ senere
             # Index af tc skal sættes til nummer airfoil
@@ -467,8 +450,6 @@ for n in range(1,timerange):
     # OBS: i stedet for at gange op til 3 blades så summeres de faktiske værdier
     M_r = np.trapz(np.sum(pt_arr,axis=1)[:,n]*r,r)
     
-    # M_G = K * omega**2 
-    
     P_arr[n] = omega*M_r
 
 
@@ -479,22 +460,109 @@ for n in range(1,timerange):
     T = np.trapz(np.sum(pn_arr,axis=1)[:,n],r)
     T_arr[n] = T
     
-    #%% update omega and pitch
+    #%% update omega and pitch til pitch controller
     
     if use_pitch_controller:
-    
-        GK = (1/ (1 + (theta_pitch_arr[n]/K1)))
-        theta_pitch_P = GK * K_P * (omega_arr[n]-omega_ref)
-        theta_pitch_I = theta_pitch_I + GK * K_I * (omega_arr[n]-omega_ref) * delta_t
-        theta_pitch_arr[n] = theta_pitch_P + theta_pitch_I
+          
+        #update omega
+        M_g = K * omega**2
+        omega_arr[n] = omega + ((M_r - M_g)/ I_rotor) * delta_t
         
-        # implement resten af pitch controller code
+        omega = omega_arr[n] 
         
-        
-        
+
+        #Region 1
+        if omega < omega_ref: 
+            theta_p_arr[n] = 0
+            
+        #region 2+3
+        else:
+            #update theta_pitch
+            GK = (1/ (1 + (theta_p_arr[n-1]/K1)))
+            theta_p_P = GK * K_P * ( omega_arr[n] -omega_ref)
+            theta_p_I = theta_p_I + GK * K_I * (omega_arr[n]-omega_ref) * delta_t
+            
+            #limit på theta_p_I angle
+            if theta_p_I > theta_p_max_ang:
+                theta_p_I = theta_p_max_ang
+            elif theta_p_I < theta_p_min_ang:
+                theta_p_I = theta_p_min_ang
+            
+            theta_p_arr[n] = theta_p_P + theta_p_I
+            # print(theta_p_arr[n])
+            
+            #hvis theta_p skal ændres hurtigere end den må (stigende i grader)
+            if (theta_p_arr[n] > theta_p_arr[n-1] + theta_p_max_vel * delta_t):
+                theta_p_arr[n] = theta_p_arr[n-1] + theta_p_max_vel * delta_t
+                
+            #hvis theta_p skal ændres hurtigere end den må (falende i grader)
+            elif (theta_p_arr[n] < theta_p_arr[n-1] - theta_p_max_vel * delta_t):
+                theta_p_arr[n] = theta_p_arr[n-1] - theta_p_max_vel * delta_t
+                
+            #theta_p må max være = theta_p_max_ang
+            if (theta_p_arr[n] > theta_p_max_ang):
+                theta_p_arr[n] = theta_p_max_ang
+
+            #theta_p må min være = theta_p_min_ang
+            elif (theta_p_arr[n] < theta_p_min_ang):
+                theta_p_arr[n] = theta_p_min_ang
+            
+
+     
     
     
+#%% PLot af M_g mod omega (generator torque mod roational speed)
+
+omega_start = 6*2*np.pi/60 #6rpm til rad/s
+omega_slut = 11*2*np.pi/60 #6rpm til rad/s
+
+omega_range = np.linspace(omega_start, omega_slut, 100)
+
+low_mask = omega_range < omega_rated
+high_mask = omega_range >= omega_rated
+
+M_g = np.zeros(len(omega_range))
+
+M_g[low_mask] = (K * omega_range**2) [low_mask]
+
+M_g[high_mask] = K * omega_rated**2
+
+plt.figure()
+plt.grid()
+plt.title('Generator characteristic')
+plt.plot(omega_range,M_g/10**6, label = 'Generator torque')
+plt.ylabel('$M_{g} \; [MN \cdot m]$')
+plt.xlabel('$\omega$ [rad/s]')
+plt.axvline(omega_rated, label = 'Rated $\omega$ = {:.2f} rad/s'.format(omega_rated), color = 'grey', linestyle = '--')
+plt.xlim(omega_range[0], omega_range[-1])
+plt.legend()
+plt.show()
+
+#%% omega of pitch plot
+
+if use_pitch_controller:
     
+    plt.figure()
+    plt.grid()
+    plt.title('Omega')
+    plt.plot(time_arr,omega_arr, label = 'Omega rad/s')
+    plt.xlabel('Time [s]')
+    plt.ylabel('$\omega$ [rad/s]')
+    plt.xlim(time_arr[0], time_arr[-1])
+    plt.legend()
+    plt.show()
+
+    plt.figure()
+    plt.grid()
+    plt.title('Theta_p')
+    plt.plot(time_arr,np.rad2deg(theta_p_arr), label = 'Pitch angle [deg]')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Pitch angle [deg]')
+    plt.xlim(time_arr[0], time_arr[-1])
+    plt.legend()
+    plt.show()
+
+
 #%% Plot x og y position sammmen for en given airfoil
 blade_element = 17
 plt.figure()
