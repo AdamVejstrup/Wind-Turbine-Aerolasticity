@@ -29,8 +29,8 @@ if use_wind_shear:
 else:
     wind_shear = 0
 
-# if use_pitch = True then pitch is changed in time (see assignment1 description)
-# if use_pitch = False then the pitch is always 0
+# if use_pitch = True then pitch is changed in time interval (see assignment1 description)
+# if use_pitch = False then the pitch is always 0 (except if pitch controller is used)
 use_pitch = False
 
 # Dynamic wake filter
@@ -42,7 +42,7 @@ use_stall = False
 # Turbulent data
 use_turbulence = False
 
-#Sæt til True hvis pitch controller bruges. Hvis True så er omega varierende. 
+#Sæt til True hvis pitch controller bruges. Hvis True så er omega og pitch angle varierende. 
 use_pitch_controller = True
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
@@ -86,7 +86,7 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0=15 # mean windspeed at hub height m/s
+V_0=9 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H=119  # Hub height m
