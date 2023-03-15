@@ -45,10 +45,14 @@ use_turbulence = False
 #Sæt til True hvis pitch controller bruges. Hvis True så er omega og pitch angle varierende. 
 use_pitch_controller = True
 
+#Sæt til True hvis pitch controller bruges. Hvis True så er omega varierende. 
+use_pitch_controller = False
+
+
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.16666 # s
 # timerange=4096
-timerange=200
+timerange=200*2
 
 if use_turbulence and timerange < 4000:
     raise ValueError('Timerange < 4000 does not work for turbulent wind')
@@ -107,8 +111,9 @@ C_p_opt = 0.47 #optimal C_p for DTU 10MW
 K = 0.5*rho*A*R**3 * (C_p_opt/lam_opt**3) #konstant der bruges til at regne M_g
 omega_rated = (P_rated/K)**(1/3)  
 M_g_max = K * omega_rated**2  #Vores max generator torque
-omega_ref = 1.02 * omega_rated #tommelfingerregel fra Martin
-
+# M_g_max = K * 1.01**2  #Vores max generator torque
+# omega_ref = 1.02 * omega_rated #tommelfingerregel fra Martin
+omega_ref = 1.01#tommelfingerregel fra Martin
 
 theta_cone=0 # radianer
 theta_yaw=np.deg2rad(0) # radianer
@@ -120,21 +125,10 @@ theta_p_max_ang = np.deg2rad(45) #radianer, max pitch vinkel
 theta_p_min_ang = 0 #radianer, min pitch vinkel
 theta_p_max_vel = np.deg2rad(9) #radianer, max pitch vinkel ændring per sekund
 
-
-if use_pitch_controller:
-    omega = (lam_opt*V_0)/R 
-    # omega= 7.229*2*np.pi/60 # rad/s
-    
-else:
-    omega= 7.229*2*np.pi/60 # rad/s
-    
-
 # Dynamic wake filter constant
 k_dwf = 0.6
 
 
-
-        
 
 #%% Turbulence box
 
@@ -277,10 +271,22 @@ pn_arr = np.zeros([len(airfoils), B, timerange])
 fs_arr = np.zeros([len(airfoils), B, timerange])
 cl_arr = np.zeros([len(airfoils), B, timerange])
 
-theta_p_arr = np.zeros(timerange)
-theta_p_arr[0] = np.deg2rad(25) 
-omega_arr = np.zeros(timerange)
+if use_pitch_controller:
+    omega = (lam_opt*V_0)/R 
+    # omega= 7.229*2*np.pi/60 # rad/s
+    omega_arr = np.zeros(timerange)
+    omega_arr[0] = omega
+    omega_arr[1] = omega
+    
+else:
+    omega= 7.229*2*np.pi/60 # rad/s
+    omega_arr = np.full(timerange,omega)
 
+theta_p_arr = np.zeros(timerange)
+# theta_p_arr[0] = np.deg2rad(25) 
+
+
+theta_p_I_arr = np.zeros(timerange)
 
 
 
@@ -310,11 +316,11 @@ for n in range(1,timerange):
         # afhængigt af hvad nummer vinge, vi kigger på
         
         if i == 0:
-            theta_blade_arr[i,n] = theta_blade_arr[0,n-1] + omega * delta_t
+            theta_blade_arr[i,n] = theta_blade_arr[0,n-1] + omega_arr[n-1] * delta_t
         elif i == 1:
-            theta_blade_arr[i,n] = theta_blade_arr[0,n] + omega * delta_t + 0.666 * np.pi
+            theta_blade_arr[i,n] = theta_blade_arr[0,n] + omega_arr[n-1] * delta_t + 0.666 * np.pi
         elif i == 2:
-            theta_blade_arr[i,n] = theta_blade_arr[0,n] + omega * delta_t + 1.333 * np.pi
+            theta_blade_arr[i,n] = theta_blade_arr[0,n] + omega_arr[n-1] * delta_t + 1.333 * np.pi
         
         
         a23 = np.array([[np.cos(theta_blade_arr[i,n]),np.sin(theta_blade_arr[i,n]),0],
@@ -362,7 +368,7 @@ for n in range(1,timerange):
             
             # Kommentar til r: Vi bruger r i nedenstående fordi den allerede er givet i system 4,
             # hvilket vores relative hastigheder også er
-            V_rel_y_arr[k, i, n] = V0y_arr[k, i, n] + Wy_arr[k, i, n-1] - omega * r[k] * np.cos(theta_cone)
+            V_rel_y_arr[k, i, n] = V0y_arr[k, i, n] + Wy_arr[k, i, n-1] - omega_arr[n-1] * r[k] * np.cos(theta_cone)
             V_rel_z_arr[k, i, n] = V0z_arr[k, i, n] + Wz_arr[k, i, n-1]
 
             phi = np.arctan(V_rel_z_arr[k, i, n]/(-V_rel_y_arr[k, i, n]))
@@ -450,7 +456,7 @@ for n in range(1,timerange):
     # OBS: i stedet for at gange op til 3 blades så summeres de faktiske værdier
     M_r = np.trapz(np.sum(pt_arr,axis=1)[:,n]*r,r)
     
-    P_arr[n] = omega*M_r
+    P_arr[n] = omega_arr[n-1]*M_r
 
 
     T_all_arr[0,n] = np.trapz(pn_arr[:,0,n],r)
@@ -463,53 +469,50 @@ for n in range(1,timerange):
     #%% update omega and pitch til pitch controller
     
     if use_pitch_controller:
-          
-        #update omega
-        M_g = K * omega**2
-        omega_arr[n] = omega + ((M_r - M_g)/ I_rotor) * delta_t
-        
-        omega = omega_arr[n] 
-        
 
         #Region 1
-        if omega < omega_ref: 
-            theta_p_arr[n] = 0
+        if omega_arr[n-1] < omega_ref: 
+            #update omega
+            M_g = K * omega_arr[n-1]**2
             
         #region 2+3
         else:
-            #update theta_pitch
-            GK = (1/ (1 + (theta_p_arr[n-1]/K1)))
-            theta_p_P = GK * K_P * ( omega_arr[n] -omega_ref)
-            theta_p_I = theta_p_I + GK * K_I * (omega_arr[n]-omega_ref) * delta_t
+            #update omega 
+            # M_g = M_g_max
+            M_g = 1.0545* 10**7
+        
+        #update theta_pitch
+        GK = (1/ (1 + (theta_p_arr[n-1]/K1)))
+        theta_p_P = GK * K_P * ( omega_arr[n-1] -omega_ref)
+        theta_p_I_arr[n] = theta_p_I_arr[n-1] + GK * K_I * (omega_arr[n-1]-omega_ref) * delta_t
+        
+        #limit på theta_p_I angle
+        if theta_p_I_arr[n] > theta_p_max_ang:
+            theta_p_I_arr[n] = theta_p_max_ang
+        elif theta_p_I_arr[n] < theta_p_min_ang:
+            theta_p_I_arr[n] = theta_p_min_ang
+        
+        theta_p_arr[n] = theta_p_P + theta_p_I_arr[n]
+        # print(theta_p_arr[n])
+        
+        #hvis theta_p skal ændres hurtigere end den må (stigende i grader)
+        if (theta_p_arr[n] > theta_p_arr[n-1] + theta_p_max_vel * delta_t):
+            theta_p_arr[n] = theta_p_arr[n-1] + theta_p_max_vel * delta_t
             
-            #limit på theta_p_I angle
-            if theta_p_I > theta_p_max_ang:
-                theta_p_I = theta_p_max_ang
-            elif theta_p_I < theta_p_min_ang:
-                theta_p_I = theta_p_min_ang
+        #hvis theta_p skal ændres hurtigere end den må (falende i grader)
+        elif (theta_p_arr[n] < theta_p_arr[n-1] - theta_p_max_vel * delta_t):
+            theta_p_arr[n] = theta_p_arr[n-1] - theta_p_max_vel * delta_t
             
-            theta_p_arr[n] = theta_p_P + theta_p_I
-            # print(theta_p_arr[n])
-            
-            #hvis theta_p skal ændres hurtigere end den må (stigende i grader)
-            if (theta_p_arr[n] > theta_p_arr[n-1] + theta_p_max_vel * delta_t):
-                theta_p_arr[n] = theta_p_arr[n-1] + theta_p_max_vel * delta_t
-                
-            #hvis theta_p skal ændres hurtigere end den må (falende i grader)
-            elif (theta_p_arr[n] < theta_p_arr[n-1] - theta_p_max_vel * delta_t):
-                theta_p_arr[n] = theta_p_arr[n-1] - theta_p_max_vel * delta_t
-                
-            #theta_p må max være = theta_p_max_ang
-            if (theta_p_arr[n] > theta_p_max_ang):
-                theta_p_arr[n] = theta_p_max_ang
+        #theta_p må max være = theta_p_max_ang
+        if (theta_p_arr[n] > theta_p_max_ang):
+            theta_p_arr[n] = theta_p_max_ang
 
-            #theta_p må min være = theta_p_min_ang
-            elif (theta_p_arr[n] < theta_p_min_ang):
-                theta_p_arr[n] = theta_p_min_ang
+        #theta_p må min være = theta_p_min_ang
+        elif (theta_p_arr[n] < theta_p_min_ang):
+            theta_p_arr[n] = theta_p_min_ang
             
-
-     
-    
+        #update omega
+        omega_arr[n] = omega_arr[n-1] + ((M_r - M_g)/ I_rotor) * delta_t
     
 #%% PLot af M_g mod omega (generator torque mod roational speed)
 
@@ -544,7 +547,7 @@ if use_pitch_controller:
     
     plt.figure()
     plt.grid()
-    plt.title('Omega')
+    plt.title('omega')
     plt.plot(time_arr,omega_arr, label = 'Omega rad/s')
     plt.xlabel('Time [s]')
     plt.ylabel('$\omega$ [rad/s]')
