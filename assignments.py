@@ -40,19 +40,21 @@ use_dwf = False
 use_stall = False
 
 # Turbulent data
-use_turbulence = False
+use_turbulence = True
 
 #Sæt til True hvis pitch controller bruges. Hvis True så er omega og pitch angle varierende. 
 use_pitch_controller = True
 
-#Sæt til True hvis pitch controller bruges. Hvis True så er omega varierende. 
-use_pitch_controller = False
-
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
-delta_t=0.16666 # s
-# timerange=4096
-timerange=200*2
+delta_t=0.1 # s
+timerange=4096
+# timerange=200*2
+
+#for the plots, plots from xlim_min and forward
+xlim_min = 30  #s
+xlim_max = 200 #s
+# xlim_max = time_arr[-1] #s
 
 if use_turbulence and timerange < 4000:
     raise ValueError('Timerange < 4000 does not work for turbulent wind')
@@ -90,7 +92,7 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0=9 # mean windspeed at hub height m/s
+V_0=15 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H=119  # Hub height m
@@ -516,30 +518,30 @@ for n in range(1,timerange):
     
 #%% PLot af M_g mod omega (generator torque mod roational speed)
 
-omega_start = 6*2*np.pi/60 #6rpm til rad/s
-omega_slut = 11*2*np.pi/60 #6rpm til rad/s
+# omega_start = 6*2*np.pi/60 #6rpm til rad/s
+# omega_slut = 11*2*np.pi/60 #6rpm til rad/s
 
-omega_range = np.linspace(omega_start, omega_slut, 100)
+# omega_range = np.linspace(omega_start, omega_slut, 100)
 
-low_mask = omega_range < omega_rated
-high_mask = omega_range >= omega_rated
+# low_mask = omega_range < omega_rated
+# high_mask = omega_range >= omega_rated
 
-M_g = np.zeros(len(omega_range))
+# M_g = np.zeros(len(omega_range))
 
-M_g[low_mask] = (K * omega_range**2) [low_mask]
+# M_g[low_mask] = (K * omega_range**2) [low_mask]
 
-M_g[high_mask] = K * omega_rated**2
+# M_g[high_mask] = K * omega_rated**2
 
-plt.figure()
-plt.grid()
-plt.title('Generator characteristic')
-plt.plot(omega_range,M_g/10**6, label = 'Generator torque')
-plt.ylabel('$M_{g} \; [MN \cdot m]$')
-plt.xlabel('$\omega$ [rad/s]')
-plt.axvline(omega_rated, label = 'Rated $\omega$ = {:.2f} rad/s'.format(omega_rated), color = 'grey', linestyle = '--')
-plt.xlim(omega_range[0], omega_range[-1])
-plt.legend()
-plt.show()
+# plt.figure()
+# plt.grid()
+# plt.title('Generator characteristic')
+# plt.plot(omega_range,M_g/10**6, label = 'Generator torque')
+# plt.ylabel('$M_{g} \; [MN \cdot m]$')
+# plt.xlabel('$\omega$ [rad/s]')
+# plt.axvline(omega_rated, label = 'Rated $\omega$ = {:.2f} rad/s'.format(omega_rated), color = 'grey', linestyle = '--')
+# plt.xlim(omega_range[0], omega_range[-1])
+# plt.legend()
+# plt.show()
 
 #%% omega of pitch plot
 
@@ -551,7 +553,9 @@ if use_pitch_controller:
     plt.plot(time_arr,omega_arr, label = 'Omega rad/s')
     plt.xlabel('Time [s]')
     plt.ylabel('$\omega$ [rad/s]')
-    plt.xlim(time_arr[0], time_arr[-1])
+    # plt.xlim(time_arr[0], time_arr[-1])
+    plt.xlim(xlim_min, xlim_max)
+    plt.ylim(omega_arr[-1]*0.98, omega_arr[-1]*1.02)
     plt.legend()
     plt.show()
 
@@ -561,60 +565,62 @@ if use_pitch_controller:
     plt.plot(time_arr,np.rad2deg(theta_p_arr), label = 'Pitch angle [deg]')
     plt.xlabel('Time [s]')
     plt.ylabel('Pitch angle [deg]')
-    plt.xlim(time_arr[0], time_arr[-1])
+    # plt.xlim(time_arr[0], time_arr[-1])
+    plt.xlim(xlim_min, xlim_max)
+    plt.ylim(7.5, 13)
     plt.legend()
     plt.show()
 
 
 #%% Plot x og y position sammmen for en given airfoil
-blade_element = 17
-plt.figure()
-plt.grid()
-# plt.title('Blade position, airfoil {} (1-based indexing)'.format(blade_element+1))
-plt.title('Blade position of the last blade element (system 1)')
-# For de tre vinger
-for i in range(B):
-    # plt.plot(x1_arr[blade_element,i,1:], y1_arr[blade_element,i,1:],linewidth=7-3*i,label='Blade {}'.format(i+1))
-    plt.plot(y1_arr[blade_element,i,1:], x1_arr[blade_element,i,1:],linewidth=7-3*i,label='Blade {}'.format(i+1))
-# Tilføjer r
-plt.plot([0,r[blade_element]],[H,H],label='r = {:.2f} m'.format(r[blade_element]))
-# Tilføjer H
-plt.plot([0,0],[0,H],label='H = {} m'.format(H),color='black')
+# blade_element = 17
+# plt.figure()
+# plt.grid()
+# # plt.title('Blade position, airfoil {} (1-based indexing)'.format(blade_element+1))
+# plt.title('Blade position of the last blade element (system 1)')
+# # For de tre vinger
+# for i in range(B):
+#     # plt.plot(x1_arr[blade_element,i,1:], y1_arr[blade_element,i,1:],linewidth=7-3*i,label='Blade {}'.format(i+1))
+#     plt.plot(y1_arr[blade_element,i,1:], x1_arr[blade_element,i,1:],linewidth=7-3*i,label='Blade {}'.format(i+1))
+# # Tilføjer r
+# plt.plot([0,r[blade_element]],[H,H],label='r = {:.2f} m'.format(r[blade_element]))
+# # Tilføjer H
+# plt.plot([0,0],[0,H],label='H = {} m'.format(H),color='black')
 
-# Ticks
-plt.xticks([-r[blade_element],0,r[blade_element]])
-plt.yticks([0,H-r[blade_element],H,H + r[blade_element]])
+# # Ticks
+# plt.xticks([-r[blade_element],0,r[blade_element]])
+# plt.yticks([0,H-r[blade_element],H,H + r[blade_element]])
 
-# Symmetriske axer for cirkel i stedet for oval form
-plt.axis('scaled')
-plt.ylabel('x [m]')
-plt.xlabel('y [m]')
-plt.ylim(bottom=0)
-plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
-plt.show()
+# # Symmetriske axer for cirkel i stedet for oval form
+# plt.axis('scaled')
+# plt.ylabel('x [m]')
+# plt.xlabel('y [m]')
+# plt.ylim(bottom=0)
+# plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
+# plt.show()
 
 
 #%% Plot af x positionen for en given airfoil. Hvis man tager airfoil nr. 17 kan man se at
 # forskellen på top of bund svarer til rotordiameteren
-blade_element = 17
-plt.figure()
-plt.grid()
-# plt.title('System 4 x-position for blade element {} (1-based indexing)'.format(blade_element+1))
-plt.title('x-position of the last blade element (system 1)')
-# For de tre vinger
-for i in range(B):
-    plt.plot(time_arr, x1_arr[blade_element,i,:],label='Blade {}'.format(i+1))
-# Tilføjer r og periode
-time_period = 2*np.pi/omega
-plt.plot([2*time_period,2*time_period],[H-r[blade_element],H+r[blade_element]],'--',label='2$\cdot$r = {:.2f} m'.format(2*r[blade_element]))
-plt.plot([time_period,2*time_period],[H+r[blade_element],H+r[blade_element]],color='black',label='T = {:.2f} s'.format(time_period))
-plt.plot([time_period,time_period + time_period/3],[H+r[blade_element],H+r[blade_element]],'--',color='y',label='T/3 = {:.2f} s'.format(time_period/3))
-plt.xlim([0,30])
-plt.ylim(bottom=0)
-plt.xlabel('Time [s]')
-plt.ylabel('x [m]')
-plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
-plt.show()
+# blade_element = 17
+# plt.figure()
+# plt.grid()
+# # plt.title('System 4 x-position for blade element {} (1-based indexing)'.format(blade_element+1))
+# plt.title('x-position of the last blade element (system 1)')
+# # For de tre vinger
+# for i in range(B):
+#     plt.plot(time_arr, x1_arr[blade_element,i,:],label='Blade {}'.format(i+1))
+# # Tilføjer r og periode
+# time_period = 2*np.pi/omega
+# plt.plot([2*time_period,2*time_period],[H-r[blade_element],H+r[blade_element]],'--',label='2$\cdot$r = {:.2f} m'.format(2*r[blade_element]))
+# plt.plot([time_period,2*time_period],[H+r[blade_element],H+r[blade_element]],color='black',label='T = {:.2f} s'.format(time_period))
+# plt.plot([time_period,time_period + time_period/3],[H+r[blade_element],H+r[blade_element]],'--',color='y',label='T/3 = {:.2f} s'.format(time_period/3))
+# plt.xlim([0,30])
+# plt.ylim(bottom=0)
+# plt.xlabel('Time [s]')
+# plt.ylabel('x [m]')
+# plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
+# plt.show()
 
 
 #%% Creating figure with subplots of T and P
@@ -626,16 +632,19 @@ ax1.set_title('Thrust and power')
 ax1.set_ylabel('Thrust [MN]', color=color)
 ax1.plot(time_arr, T_arr/(10**6), color=color)
 ax1.tick_params(axis='y', labelcolor=color)
-ax1.set_xlim([0,max(time_arr)])
+ax1.set_xlim([xlim_min,xlim_max])
+ax1.set_ylim([T_arr[-1]*0.6/(10**6), T_arr[-1]*1.2/(10**6)])
 
 ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
 
 color = 'tab:blue'
 ax2.set_ylabel('Power [MW]', color=color)  # we already handled the x-label with ax1
 ax2.plot(time_arr, P_arr/(10**6), color=color)
+ax2.set_ylim([P_arr[-1]*0.6/(10**6), P_arr[-1]*1.3/(10**6)])
 # Man skal af en eller anden grund have denne her linje med for at de to y-akser bliver aligned
 ax2.set_yticks(np.linspace(ax2.get_yticks()[0],ax2.get_yticks()[-1],len(ax1.get_yticks())))
 ax2.tick_params(axis='y', labelcolor=color)
+
 
 blade_element = 8
 ax3.set_title('Induced wind')
@@ -648,11 +657,12 @@ ax1.axvline(150,color = 'grey', linestyle='--',label='Time = 150 s')
 ax3.grid()
 ax3.set_xlabel('Time [s]')
 ax3.set_ylabel('W [m/s]')
-ax3.set_xlim([0,max(time_arr)])
+ax3.set_xlim([xlim_min, xlim_max])
 ax3.legend(loc='center left')
 
 fig.tight_layout()  # otherwise the right y-label is slightly clipped
 plt.show()
+
 
 #%% Plot af loadings
 
@@ -661,35 +671,35 @@ plt.show()
 # martin_pz = np.loadtxt('martin_pz.txt')
 
 # DTU rapport loadings
-dtu_r, dtu_pt, dtu_pn = np.loadtxt('wsp_9_spanwise_loads.DAT',unpack=True,usecols=(0,1,2))
+# dtu_r, dtu_pt, dtu_pn = np.loadtxt('wsp_9_spanwise_loads.DAT',unpack=True,usecols=(0,1,2))
 
-blade_number = 0
-plt.figure()
-plt.grid()
-plt.title('Load distribution for blade {}'.format(blade_number+1))
-plt.plot(r,pn_arr[:, blade_number, -1],label='$p_{n,calculated}$',marker='o')
-plt.plot(r,pt_arr[:, blade_number, -1],label='$p_{t,calculated}$',marker='o')
-plt.plot(dtu_r,dtu_pt,label='$p_{t,dtu}$',linestyle='--')
-plt.plot(dtu_r,dtu_pn,label='$p_{n,dtu}$',linestyle='--')
-plt.xlim(0)
-plt.xlabel('r [m]')
-plt.ylabel('p [N/m]')
-plt.legend()
-plt.show()
+# blade_number = 0
+# plt.figure()
+# plt.grid()
+# plt.title('Load distribution for blade {}'.format(blade_number+1))
+# plt.plot(r,pn_arr[:, blade_number, -1],label='$p_{n,calculated}$',marker='o')
+# plt.plot(r,pt_arr[:, blade_number, -1],label='$p_{t,calculated}$',marker='o')
+# plt.plot(dtu_r,dtu_pt,label='$p_{t,dtu}$',linestyle='--')
+# plt.plot(dtu_r,dtu_pn,label='$p_{n,dtu}$',linestyle='--')
+# plt.xlim(0)
+# plt.xlabel('r [m]')
+# plt.ylabel('p [N/m]')
+# plt.legend()
+# plt.show()
 
 #%% Plot af thrust for hver blade og for alle blades lagt sammen
 
-plt.figure()
-plt.grid()
-plt.title('Thrust')
-for i in range(B):
-    plt.plot(time_arr, T_all_arr[i,:]/10**6,label='Blade {}'.format(i+1))
-plt.plot(time_arr, T_arr/(10**6),label = 'Total')
-plt.xlabel('Time [s]')
-plt.ylabel('Thrust [MN]')
-plt.xlim([0,time_arr[-1]])
-plt.legend()
-plt.show()
+# plt.figure()
+# plt.grid()
+# plt.title('Thrust')
+# for i in range(B):
+#     plt.plot(time_arr, T_all_arr[i,:]/10**6,label='Blade {}'.format(i+1))
+# plt.plot(time_arr, T_arr/(10**6),label = 'Total')
+# plt.xlabel('Time [s]')
+# plt.ylabel('Thrust [MN]')
+# plt.xlim([0,time_arr[-1]])
+# plt.legend()
+# plt.show()
 
 #%% Turbulens plots
 
@@ -748,5 +758,7 @@ if use_turbulence:
     ax.set_title('Power spectral density of total thrust')
     ax.grid()
     plt.show()
+    
+
 
 
