@@ -49,7 +49,7 @@ use_pitch_controller = True
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.1 # s
 timerange=4096
-# timerange=200*2
+# timerange=200*3
 
 #for the plots, plots from xlim_min and forward
 xlim_min = 30  #s
@@ -92,7 +92,7 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0=15 # mean windspeed at hub height m/s
+V_0= 15 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H=119  # Hub height m
@@ -285,7 +285,7 @@ else:
     omega_arr = np.full(timerange,omega)
 
 theta_p_arr = np.zeros(timerange)
-# theta_p_arr[0] = np.deg2rad(25) 
+theta_p_arr[0] = np.deg2rad(25) 
 
 
 theta_p_I_arr = np.zeros(timerange)
@@ -567,7 +567,7 @@ if use_pitch_controller:
     plt.ylabel('Pitch angle [deg]')
     # plt.xlim(time_arr[0], time_arr[-1])
     plt.xlim(xlim_min, xlim_max)
-    plt.ylim(7.5, 13)
+    plt.ylim(np.rad2deg(theta_p_arr[-1]) * 0.5, np.rad2deg(theta_p_arr[-1])* 1.5)
     plt.legend()
     plt.show()
 
