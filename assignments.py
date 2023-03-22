@@ -104,14 +104,14 @@ r,beta_deg,c,tc = airfoils.T
 V_0 = 15 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
-H=119  # Hub height m
-L_s=7.1  # Length of shaft m
-R=89.17 # Radius m
+H = 119  # Hub height m
+L_s = 7.1  # Length of shaft m
+R = 89.17 # Radius m
 A = R**2 *np.pi #m^2
-tilt_deg=-5 # grader   (bruges ikke i uge 1)
+tilt_deg = -5 # grader   (bruges ikke i uge 1)
 lam_opt = 8 #
 P_rated = 10.64*10**6 #W
-rho=1.225 # kg/m**3
+rho = 1.225 # kg/m**3
 I_rotor = 1.6*10**8 #kg*m^2  inertia moment of the drivetrain
 
 K1 = np.deg2rad(14) # rad
@@ -126,11 +126,11 @@ M_g_max = K * omega_rated**2  #Vores max generator torque
 # omega_ref = 1.02 * omega_rated #tommelfingerregel fra Martin
 omega_ref = 1.01#tommelfingerregel fra Martin
 
-theta_cone=0 # radianer
-theta_yaw=np.deg2rad(0) # radianer
-theta_tilt=0 # radianer
-theta_p=0 # radianer
-theta_p_I=0 # radianer
+theta_cone = 0 # radianer
+theta_yaw = np.deg2rad(0) # radianer
+theta_tilt = 0 # radianer
+theta_p = 0 # radianer
+theta_p_I = 0 # radianer
 
 theta_p_max_ang = np.deg2rad(45) #radianer, max pitch vinkel
 theta_p_min_ang = 0 #radianer, min pitch vinkel
@@ -149,10 +149,10 @@ if use_turbulence:
     turbulence_parameters = np.genfromtxt('turbulence/inputEx3.INP')
     
     # Dimensionerne skal være ints. Disse er punkterne i boxen
-    n1,n2,n3 = turbulence_parameters[2:5].astype(int)
+    n1, n2, n3 = turbulence_parameters[2:5].astype(int)
     
     # Disse er længdedimensionerne af boxen
-    Lx,Ly,Lz = turbulence_parameters[5:8]
+    Lx, Ly, Lz = turbulence_parameters[5:8]
     
     # Middel wind speed fra boxen. Skal matche middel wind speed fra scriptet her
     # Hvis disse to ikke ens, gives der en fejlmeddelelse
@@ -160,10 +160,10 @@ if use_turbulence:
     if not np.isclose(umean,V_0):
         raise ValueError('The mean wind speed umean from the turbulent box does not match the V_0 in this script')
 
-    deltay=Ly/(n2-1)
-    deltax=Lx/(n1-1)
-    deltaz=Lz/(n3-1)
-    deltat=deltax/umean
+    deltay = Ly/(n2-1)
+    deltax = Lx/(n1-1)
+    deltaz = Lz/(n3-1)
+    deltat = deltax/umean
     
     # Ligesom for middelvinden skal der være overensstemmelse mellem deltat fra turbulent
     # box og delta_t fra dette script
@@ -189,31 +189,31 @@ if use_turbulence:
 
 #%% Transformation matrices
 
-a1=np.array([[1,0,0],
+a1 = np.array([[1,0,0],
           [0,np.cos(theta_yaw),np.sin(theta_yaw)],
           [0,-np.sin(theta_yaw),np.cos(theta_yaw)]])
 
-a2=np.array([[np.cos(theta_tilt), 0, -np.sin(theta_tilt)],
+a2 = np.array([[np.cos(theta_tilt), 0, -np.sin(theta_tilt)],
           [0,1,0],
           [np.sin(theta_tilt),0, np.cos(theta_tilt)]])
 
-a3=np.array([[1,0,0],
+a3 = np.array([[1,0,0],
           [0,1,0],
           [0,0,1]])
 
-a12=a3@a2@a1    #Udregner transformation matrice a12
+a12 = a3@a2@a1    #Udregner transformation matrice a12
 
-a21=np.transpose(a12)
+a21 = np.transpose(a12)
 
 
-a34=np.array([[np.cos(theta_cone),0,-np.sin(theta_cone)],
+a34 = np.array([[np.cos(theta_cone),0,-np.sin(theta_cone)],
               [0,1,0],
               [np.sin(theta_cone), 0, np.cos(theta_cone)]])
 
 
-rt1=np.array([H,0,0])
+rt1 = np.array([H,0,0])
 
-rs1=a21@np.array([0,0,-L_s])
+rs1 = a21@np.array([0,0,-L_s])
 
 
 #%% Array initializations
