@@ -37,17 +37,17 @@ use_pitch = False
 
 use_dwf = True # Dynamic wake filter
 use_stall = True # Dynamic stall
-use_turbulence = False # Turbulent data
+use_turbulence = True # Turbulent data
 use_pitch_controller = True # Pitch controller.
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.1 # s
-timerange=2000
+timerange=4096
 # timerange=200*3
 
 #for the plots, plots from xlim_min and forward
-xlim_min = 50  #s
-xlim_max = 120 #s
+xlim_min = 30  #s
+xlim_max = 200 #s
 
 # xlim_max = time_arr[-1] #s
 
@@ -59,6 +59,7 @@ if use_turbulence and timerange < 4000:
 
 plot_gen_char = False # Generator characteristic
 plot_omega = True # Omega against time
+plot_hubwind = True #Wind at hub height
 plot_theta_p = True # Pitch against time
 plot_position_sys1 = False # (y, x)-coordinates in system 1 of given blade element
 plot_thrust_power = False # Thrust and power
@@ -101,7 +102,7 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0 = 9 # mean windspeed at hub height m/s
+V_0 = 15 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H = 119  # Hub height m
@@ -519,6 +520,20 @@ if plot_omega:
     plt.plot(time_arr[mask], omega_arr[mask], label = '$\omega$ rad/s')
     plt.xlabel('Time [s]')
     plt.ylabel('$\omega$ [rad/s]')
+    plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    plt.legend()
+    plt.show()
+
+if plot_hubwind:
+    
+    V_hub=V0z_arr[0,0,0:4096] #Wind velocity for the first element
+    
+    plt.figure()
+    plt.grid()
+    plt.title('Wind speed')
+    plt.plot(time_arr[mask], V_hub[mask], label = '$V_0$ m/s')
+    plt.xlabel('Time [s]')
+    plt.ylabel('$V_0$ [m/s]')
     plt.xlim(time_arr[mask][0], time_arr[mask][-1])
     plt.legend()
     plt.show()
