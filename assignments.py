@@ -62,7 +62,7 @@ plot_omega = True # Omega against time
 plot_hubwind = True #Wind at hub height
 plot_theta_p = True # Pitch against time
 plot_position_sys1 = False # (y, x)-coordinates in system 1 of given blade element
-plot_thrust_power = False # Thrust and power
+plot_thrust_power = True # Thrust and power
 plot_induced_wind = False # Induced wind y and z
 plot_load_distribution = False # Load distribution and dtu 9 m/s load distribution
 plot_thrust_per_blade = False # Thrust for each blade and total thrust
@@ -594,6 +594,31 @@ if plot_thrust_power:
     # Man skal af en eller anden grund have denne her linje med for at de to y-akser bliver aligned
     ax2.set_yticks(np.linspace(ax2.get_yticks()[0],ax2.get_yticks()[-1],len(ax1.get_yticks())))
     ax2.tick_params(axis='y', labelcolor=color)
+
+
+
+
+
+
+    plt.figure()
+    plt.grid()
+    plt.title('Power')
+    plt.plot(time_arr[mask], (P_arr/(10**6))[mask],label = 'Power')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Power [MW]')
+    plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    plt.legend()
+    plt.show()
+
+    plt.figure()
+    plt.grid()
+    plt.title('Thrust')
+    plt.plot(time_arr[mask], (T_arr/(10**6))[mask],label = 'Thrust', color='tab:orange')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Thrust [MN]')
+    plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    plt.legend()
+    plt.show()
 
 
 #%% Plotting induced wind
