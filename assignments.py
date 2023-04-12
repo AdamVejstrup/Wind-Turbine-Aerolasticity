@@ -37,17 +37,18 @@ use_pitch = False
 
 use_dwf = True # Dynamic wake filter
 use_stall = True # Dynamic stall
-use_turbulence = True # Turbulent data
-use_pitch_controller = True # Pitch controller.
+use_turbulence = False # Turbulent data
+use_pitch_controller = False # Pitch controller.
+use_tower_shadow = True #Tower shadow
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.1 # s
-timerange=4096
-# timerange=200*3
+#timerange=4096
+timerange=200*3
 
 #for the plots, plots from xlim_min and forward
 xlim_min = 30  #s
-xlim_max = 60 #s
+xlim_max = 200 #s
 
 # xlim_max = time_arr[-1] #s
 
@@ -57,17 +58,18 @@ if use_turbulence and timerange < 4000:
 
 # %% Choose plots
 
-plot_gen_char = True # Generator characteristic
-plot_omega = True # Omega against time
-plot_theta_p = True # Pitch against time
-plot_position_sys1 = True # (y, x)-coordinates in system 1 of given blade element
-plot_thrust_power = True # Thrust and power
-plot_induced_wind = True # Induced wind y and z
-plot_load_distribution = True # Load distribution and dtu 9 m/s load distribution
-plot_thrust_per_blade = True # Thrust for each blade and total thrust
-plot_pn_specific_element = True # Normal loading for specific blade and specific blade element
-plot_thrust_psd = True # PSD of total thrust
-plot_turbulence_contour = True # Contour plot of turbulence
+plot_gen_char = False # Generator characteristic
+plot_omega = False # Omega against time
+plot_hubwind = False #Wind at hub height
+plot_theta_p = False # Pitch against time
+plot_position_sys1 = False # (y, x)-coordinates in system 1 of given blade element
+plot_thrust_power = False # Thrust and power
+plot_induced_wind = False # Induced wind y and z
+plot_load_distribution = False # Load distribution and dtu 9 m/s load distribution
+plot_thrust_per_blade = False # Thrust for each blade and total thrust
+plot_pn_specific_element = False # Normal loading for specific blade and specific blade element
+plot_thrust_psd = False # PSD of total thrust
+plot_turbulence_contour = False # Contour plot of turbulence
 
 # %% Force coeff files
 
@@ -101,10 +103,11 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0 = 15 # mean windspeed at hub height m/s
+V_0 = 10 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H = 119  # Hub height m
+#a=3.32 #m tower radius
 L_s = 7.1  # Length of shaft m
 R = 89.17 # Radius m
 A = R**2 *np.pi #m^2
@@ -138,6 +141,7 @@ theta_p_max_vel = np.deg2rad(9) #radianer, max pitch vinkel ændring per sekund
 
 # Dynamic wake filter constant
 k_dwf = 0.6
+
 
 
 
@@ -277,11 +281,14 @@ theta_p_arr[0] = np.deg2rad(25)
 
 theta_p_I_arr = np.zeros(timerange)
 
+theta_blade1=[omega*delta_t,omega*delta_t*2]
+
 #%% Looping over time, blades, airfoils
 for n in range(1,timerange):
     #%% Time loop
     
     time_arr[n] = n*delta_t
+    theta_blade1.append(theta_blade1[n-1]+omega*delta_t)
     
     if use_pitch:
         if 100 <= time_arr[n] <= 150:
@@ -330,12 +337,9 @@ for n in range(1,timerange):
             y1_arr[k, i, n] = r1[1]
             z1_arr[k, i, n] = r1[2]
             
-            # Wind shear. V_0 skal erstattes med et array af windspeeds i sidste opgave
-            
+
             if use_turbulence:
-                    
                 turb = f2d([x1_arr[k, i, n]],[y1_arr[k, i, n]])[0]
-                # turb = f2d(x1_arr[k, i, n],y1_arr[k, i, n])
                 
                 # v_arr[n] = f([x_arr[n]],[y_arr[n]])
                 # v_arr_point[n] = f(point_x,point_y)
@@ -353,10 +357,23 @@ for n in range(1,timerange):
             V0z_arr[k, i, n] = V0_4[2]
             
             
+            if use_tower_shadow:
+                r_til_punkt=( y1_arr[k,i,n]**2+z1_arr[k,i,n]**2   )**(1/2) #Distancen til punktet r ud fra koordinaterne fra vektoren r_1
+                if x1_arr[k,i,n]<=H:    #Tower shadow gælder kun når x er mindre end hub height H
+                    tower_rad=3.32
+                elif x1_arr[k,i,n]>H:
+                    tower_rad=0
+                Vr=z1_arr[k,i,n]/r_til_punkt*V0z_arr[k,i,n]*(1-(tower_rad/r_til_punkt)**2)
+                Vtheta=y1_arr[k,i,n]/r_til_punkt*V0z_arr[k,i,n]*(1+(tower_rad/r_til_punkt)**2)
+                
+                V_rel_y_arr[k, i, n]=(z1_arr[k,i,n]/r_til_punkt)*Vr  +  (y1_arr[k,i,n]/r_til_punkt)*Vtheta
+                V_rel_z_arr[k, i, n]=(y1_arr[k,i,n]/r_til_punkt)*Vr  -  (z1_arr[k,i,n]/r_til_punkt)*Vtheta
+            else:    
             # Kommentar til r: Vi bruger r i nedenstående fordi den allerede er givet i system 4,
             # hvilket vores relative hastigheder også er
-            V_rel_y_arr[k, i, n] = V0y_arr[k, i, n] + Wy_arr[k, i, n-1] - omega_arr[n-1] * r[k] * np.cos(theta_cone)
-            V_rel_z_arr[k, i, n] = V0z_arr[k, i, n] + Wz_arr[k, i, n-1]
+                V_rel_y_arr[k, i, n] = V0y_arr[k, i, n] + Wy_arr[k, i, n-1] - omega_arr[n-1] * r[k] * np.cos(theta_cone)
+                V_rel_z_arr[k, i, n] = V0z_arr[k, i, n] + Wz_arr[k, i, n-1]
+            
 
             phi = np.arctan(V_rel_z_arr[k, i, n]/(-V_rel_y_arr[k, i, n]))
             
@@ -515,10 +532,24 @@ if plot_omega:
     
     plt.figure()
     plt.grid()
-    plt.title('omega')
-    plt.plot(time_arr[mask], omega_arr[mask], label = 'Omega rad/s')
+    plt.title('Rotational speed $\omega$')
+    plt.plot(time_arr[mask], omega_arr[mask], label = '$\omega$ rad/s')
     plt.xlabel('Time [s]')
     plt.ylabel('$\omega$ [rad/s]')
+    plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    plt.legend()
+    plt.show()
+
+if plot_hubwind:
+    
+    V_hub=V0z_arr[0,0,0:4096] #Wind velocity for the first element
+    
+    plt.figure()
+    plt.grid()
+    plt.title('Wind speed')
+    plt.plot(time_arr[mask], V_hub[mask], label = '$V_0$ m/s')
+    plt.xlabel('Time [s]')
+    plt.ylabel('$V_0$ [m/s]')
     plt.xlim(time_arr[mask][0], time_arr[mask][-1])
     plt.legend()
     plt.show()
@@ -528,7 +559,7 @@ if plot_theta_p:
     
     plt.figure()
     plt.grid()
-    plt.title('Theta_p')
+    plt.title('Pitch angle $\Theta_p$')
     plt.plot(time_arr[mask], np.rad2deg(theta_p_arr)[mask], label = 'Pitch angle [deg]')
     plt.xlabel('Time [s]')
     plt.ylabel('Pitch angle [deg]')
@@ -536,6 +567,8 @@ if plot_theta_p:
     plt.legend()
     plt.show()
 
+    print('For V0=', V_0, 'theta_pitch=', np.rad2deg(theta_p_arr[-1]), 'deg')
+          
 #%% Plot x og y position sammmen for en given airfoil
 mask = x_mask(time_arr, xlim_min, xlim_max)
 
@@ -578,6 +611,26 @@ if plot_thrust_power:
     ax2.set_yticks(np.linspace(ax2.get_yticks()[0],ax2.get_yticks()[-1],len(ax1.get_yticks())))
     ax2.tick_params(axis='y', labelcolor=color)
 
+    plt.figure()
+    plt.grid()
+    plt.title('Power')
+    plt.plot(time_arr[mask], (P_arr/(10**6))[mask],label = 'Power')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Power [MW]')
+    plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    plt.legend()
+    plt.show()
+
+    plt.figure()
+    plt.grid()
+    plt.title('Thrust')
+    plt.plot(time_arr[mask], (T_arr/(10**6))[mask],label = 'Thrust', color='tab:orange')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Thrust [MN]')
+    plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    plt.legend()
+    plt.show()
+
 
 #%% Plotting induced wind
 mask = x_mask(time_arr, xlim_min, xlim_max)
@@ -596,6 +649,21 @@ if plot_induced_wind:
     ax1.set_ylabel('W [m/s]')
     ax1.set_xlim([xlim_min, xlim_max])
     ax1.legend(loc='center left')
+    
+#%%
+
+if use_tower_shadow:
+    blade_element = 8
+    plt.figure()
+    plt.title('Wind velocity (V1)')
+    plt.plot(np.rad2deg(theta_blade_arr[0,:]),V_rel_y_arr[blade_element,0,:],color='blue', label='Vy')
+    plt.plot(np.rad2deg(theta_blade_arr[0,:]),V_rel_z_arr[blade_element,0,:],color='red', label='Vz')
+    plt.xlabel('Azimuthal angle [degree]')
+    plt.ylabel('Velocity[m/s]')
+    plt.xlim(0,360)
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 
 #%% Plot af loadings
@@ -726,3 +794,24 @@ if plot_thrust_psd:
     ax.set_title('Power spectral density of total thrust')
     ax.grid()
     plt.show()
+
+
+"""
+incomingwind=[4,6,8,10,11,11.4, 12,14,16,18,20,22,24]
+pitch_res=[0,0,0,0,0,2.4185394375943012,  5.0873878101, 9.4601400689, 12.5208309587, 15.1300994765, 17.4882184001, 19.6766815741, 21.7365520621]
+rated_pitch=[2.4185394375943012, 2.4185394375943012, 2.4185394375943012,2.4185394375943012, 2.4185394375943012, 2.4185394375943012, 2.4185394375943012, 2.4185394375943012, 2.4185394375943012, 2.4185394375943012, 2.4185394375943012, 2.4185394375943012, 2.4185394375943012]
+
+plt.figure()
+plt.grid()
+plt.title('Pitch angle as function of wind speed')
+plt.plot(incomingwind,pitch_res,color='royalblue')
+plt.plot(incomingwind,pitch_res, '.', color='blue')
+plt.axvline(11.4, ls='--',color = 'Cornflowerblue', label='Rated wind speed')
+plt.xlabel('Windspeed [m/s]')
+plt.xlim(4,24)
+plt.ylabel('$\Theta_p$ [deg]')
+plt.legend()
+plt.show()
+"""
+
+
