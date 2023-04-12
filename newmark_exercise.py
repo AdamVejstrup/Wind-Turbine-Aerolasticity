@@ -51,7 +51,7 @@ gf[1, 0] = g*sm * np.cos(x[1, 0])
 
 
 # Step 1: System matrices
-M_star = M + gamma*h*C + beta * h**2 * K
+M_star = M + (gamma*h*C) + (beta * h**2 * K)
 
 # Step 2: Initial conditions
 
@@ -64,8 +64,10 @@ for n in range(1, len(time)):
     # Step 3: Prediction step
     
     dx_up = dx[:, n-1] + (1-gamma)*h * ddx[:, n-1]
+    # dx_up = dx[:, n] + (1-gamma)*h * ddx[:, n]
     
     x_up = x[:, n-1] + h*dx[:, n-1] + (0.5-beta)*h**2*ddx[:, n-1]
+    # x_up = x[:, n] + h*dx[:, n] + (0.5-beta)*h**2*ddx[:, n]
     
     # Step 4: Correction step
     
@@ -75,19 +77,21 @@ for n in range(1, len(time)):
     gf_up = np.array([dx_up[1]**2 * np.cos(x_up[1]) * sm,
                       g*sm * np.cos(x_up[1])])
     
-    M_star_up = M_up + gamma*h*C + beta*h**2*K
+    M_star_up = M_up + gamma*h*C + beta*(h**2)*K
     
-    ddx_correct = np.linalg.inv(M_star_up) @ (gf_up - C@dx[:, n-1] - K@x[:, n-1])
+    ddx_correct = np.linalg.inv(M_star_up) @ (gf_up - (C @ dx[:, n-1]) - (K @ x[:, n-1]))
+    # ddx_correct = np.linalg.inv(M_star_up) @ (gf_up - C@dx[:, n] - K@x[:, n])
     
     dx_correct = dx_up + gamma*h*ddx_correct
     
     x_correct = x_up + beta*h**2*ddx_correct
     
+    # Updating position, velocity and acceleration
     x[:, n] = x_correct
-    
     dx[:, n] = dx_correct
+    ddx[:, n] = ddx_correct
 
-#%%
+# %% Plotting the results
 plt.figure()
 plt.grid()
 plt.title(f'Cart position and beam angular positon, timestep = {h} s')
