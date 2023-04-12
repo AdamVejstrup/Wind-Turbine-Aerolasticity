@@ -39,7 +39,7 @@ use_dwf = True # Dynamic wake filter
 use_stall = True # Dynamic stall
 use_turbulence = False # Turbulent data
 use_pitch_controller = False # Pitch controller.
-use_tower_shadow = True #Tower shadow
+use_tower_shadow = False #Tower shadow
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.1 # s
@@ -479,7 +479,7 @@ for n in range(1,timerange):
             #update omega
             M_g = K * omega_arr[n-1]**2
             
-        #region 2+3
+        # Region 2+3
         else:
             #update omega 
             # M_g = M_g_max
