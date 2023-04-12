@@ -133,5 +133,22 @@ def make_position_sys1(blade_element, time_arr, y1_arr, x1_arr, mask, r, B, H):
     plt.show()
     
     return
+
+def rpm2rad(x):
+    return x * (2*np.pi/60)
+
+def rad2rpm(x):
+    return x * (60/(2*np.pi))
+
+def calc_lam(omega, V_0, R):
+    # Calculate tip speed ratio
+    return (omega * R) / V_0
+
+def calc_omega(lam, V_0, R):
+    # Calculate omega from tip sp
+    return lam * V_0 / R
     
-    
+
+
+
+

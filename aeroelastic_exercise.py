@@ -8,6 +8,7 @@ Created on Sun Mar 26 11:15:31 2023
 import numpy as np
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
+import seaborn as sb
 
 # Airfoil name
 a_name = 'FFA-W3-241'
@@ -94,7 +95,12 @@ t = np.linspace(0, 20, nots)
 # Solving the problem
 sol = odeint(pend, y0, t, args=(m, k, c, V_0, alpha_g, rho, s, use_stall))
 
+
 # Plotting the results
+styles = plt.style.available
+plt.style.use('default')
+plt.rcParams.update({'font.size':12})
+
 plt.figure()
 
 if use_stall:
@@ -104,8 +110,13 @@ else:
 
 alpha_g_str = f'$\\alpha_g$ = {np.rad2deg(alpha_g)} $\degree$'
 
-plt.title(f'x-position, {alpha_g_str} ({stall_str})')
-plt.plot(t, sol[:, 0], label='x')
+plt.title('Airfoil x-position')
+
+# First column of the solution corresponds to the x position
+plt.plot(t, sol[:, 0], label=f'{alpha_g_str} ({stall_str})')
+plt.xlim(t[0], t[-1])
 plt.xlabel('Time [s]')
 plt.ylabel('x [m]')
 plt.grid()
+plt.legend()
+plt.show()
