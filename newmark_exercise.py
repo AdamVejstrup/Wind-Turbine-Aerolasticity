@@ -60,16 +60,15 @@ gf[0, 0] = dx[1, 0]**2 * np.cos(x[1, 0]) * sm
 gf[1, 0] = g*sm * np.cos(x[1, 0])
 
 
-# Step 1: System matrices
-M_star = M + (gamma*h*C) + (beta * h**2 * K)
-
-# Step 2: Initial conditions
-
-ddx = np.zeros(x.shape)
-ddx[:, 0] = np.linalg.inv(M_star) @ (gf[:, 0] - C@dx[:, 0] - K@x[:, 0])
-
-
 if linear_newmark:
+    # Step 1: System matrices
+    M_star = M + (gamma*h*C) + (beta * h**2 * K)
+
+    # Step 2: Initial conditions
+
+    ddx = np.zeros(x.shape)
+    ddx[:, 0] = np.linalg.inv(M_star) @ (gf[:, 0] - C@dx[:, 0] - K@x[:, 0])
+    
     for n in range(1, len(time)):
         # Step 3: Prediction step
         
@@ -98,7 +97,12 @@ if linear_newmark:
         dx[:, n] = dx_correct
         ddx[:, n] = ddx_correct
 
-else:
+elif non_linear_newmark:
+    
+    ddx = np.zeros(x.shape)
+    ddx[:, 0] = np.linalg.inv(M) @ (gf[:, 0] - C @ dx[:, 0] - K @ x[:, 0])
+    
+    
     for n in range(1, len(time)):
         
         # Step 2: Predictions of position, velocity and acceleration
@@ -115,7 +119,7 @@ else:
         counter = 0
         r = np.array([1, 1])
         
-        while (r[0] >= eps) and (r[1] >= eps) or (counter < 600):
+        while ((abs(r[0]) >= eps) and (abs(r[1]) >= eps)) or (counter < 600):
             M_up = np.array([[m2*L + m1, -sm*np.sin(x_up[1])],
                         [-sm*np.sin(x_up[1]), im]])
             
@@ -125,14 +129,10 @@ else:
             # r = gf_up - M_up @ ddx_up[:, n] - C @ dx_up[:, n] - K @ x_up[:, n]
             r = gf_up - M_up @ ddx_up - C @ dx_up - K @ x_up
             
-            K_star = K + (gamma*h) / (beta * h) * C + 1/(beta * h**2) * M
+            K_star = K + (gamma) / (beta * h) * C + 1/(beta * h**2) * M_up
             
             delta_x = np.linalg.inv(K_star) @ r
             
-            # New x_up that is only used in the while loop
-            # x_up_while = x_up + delta_x
-            # dx_up_while = dx_up + gamma / (beta*h) * delta_x
-            # ddx_up_while = ddx_up + (1 / beta*h**2) * delta_x
             
             x_up = x_up + delta_x
             dx_up = dx_up + gamma / (beta*h) * delta_x
