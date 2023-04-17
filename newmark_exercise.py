@@ -27,7 +27,7 @@ if linear_newmark:
 elif non_linear_newmark:
     beta = 0.27
     gamma = 0.51
-    eps = 0.001
+    eps = 0.000001
 else:
     raise ValueError('Please choose between linear or non-linear newmark')
 
