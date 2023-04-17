@@ -27,7 +27,7 @@ if linear_newmark:
 elif non_linear_newmark:
     beta = 0.27
     gamma = 0.51
-    eps = 10**(-2)
+    eps = 0.001
 else:
     raise ValueError('Please choose between linear or non-linear newmark')
 
@@ -48,8 +48,8 @@ x = np.zeros([2, len(time)])
 dx = np.zeros(x.shape)
 
 
-M = np.array([[m2*L + m1, -sm*np.sin(x[1, 0])],
-              [-sm*np.sin(x[1, 0]), im]])
+M = np.array([[m2*L + m1,           -sm*np.sin(x[1, 0])],
+              [-sm*np.sin(x[1, 0]),  im]])
 
 C = np.zeros(M.shape)
 
@@ -67,7 +67,7 @@ if linear_newmark:
     # Step 2: Initial conditions
 
     ddx = np.zeros(x.shape)
-    ddx[:, 0] = np.linalg.inv(M_star) @ (gf[:, 0] - C@dx[:, 0] - K@x[:, 0])
+    ddx[:, 0] = np.linalg.inv(M_star)@(gf[:, 0] - C@dx[:, 0] - K@x[:, 0])
     
     for n in range(1, len(time)):
         # Step 3: Prediction step
@@ -78,11 +78,11 @@ if linear_newmark:
         
         # Step 4: Correction step
         
-        M_up = np.array([[m2*L + m1, -sm*np.sin(x_up[1])],
-                    [-sm*np.sin(x_up[1]), im]])
+        M_up = np.array([[m2*L + m1,      -sm*np.sin(x_up[1])],
+                    [-sm*np.sin(x_up[1]),  im]])
         
         gf_up = np.array([dx_up[1]**2 * np.cos(x_up[1]) * sm,
-                        g*sm * np.cos(x_up[1])])
+                          g*sm * np.cos(x_up[1])])
         
         M_star_up = M_up + gamma*h*C + beta*(h**2)*K
         
@@ -110,35 +110,35 @@ elif non_linear_newmark:
         dx_up = dx[:, n-1] + h*ddx[:, n-1]
         ddx_up = ddx[:, n-1]
 
+
+        #Step 3: Residual calculation
         counter = 0
         r = np.array([1, 1])
         
-        while ((abs(r[0]) >= eps) and (abs(r[1]) >= eps)) or (counter < 600):
-            M_up = np.array([[m2*L + m1, -sm*np.sin(x_up[1])],
-                        [-sm*np.sin(x_up[1]), im]])
+        while max(abs(r)) > eps and counter < 600:
+            
+            M_up = np.array([[m2*L + m1,      -sm*np.sin(x_up[1])],
+                        [-sm*np.sin(x_up[1]),  im]])
             
             gf_up = np.array([dx_up[1]**2 * np.cos(x_up[1]) * sm,
-                            g*sm * np.cos(x_up[1])])
+                              g*sm * np.cos(x_up[1])])
             
-            # r = gf_up - M_up @ ddx_up[:, n] - C @ dx_up[:, n] - K @ x_up[:, n]
+            #Calculate residual
             r = gf_up - M_up @ ddx_up - C @ dx_up - K @ x_up
             
             K_star = K + gamma/(beta*h) * C + (1/(beta * h**2)) * M_up
             
             delta_x = np.linalg.inv(K_star) @ r
-            #A -Mandag d 17.04
-            #Problemet er at i K_star bliver leddet (1/(beta * h**2)) meget stort
-            #når man så tager den inverse bliver det meget småt og det prikkes så med r som også er meget lille
-            #derfor bliver delta_x meget tæt på = 0 og derfor er der intet der opdateres. 
             
+            #Update dof
             x_up = x_up + delta_x
             dx_up = dx_up + gamma / (beta*h) * delta_x
-            ddx_up = ddx_up + (1 / beta*h**2) * delta_x
-            
+            ddx_up = ddx_up + 1 / (beta*h**2) * delta_x
+
             # Update counter
             counter = counter + 1
-        if n <= 100:
-            print(counter)
+        
+        #Save updated dof
         x[:, n] = x_up
         dx[:, n] = dx_up
         ddx[:, n] = ddx_up
