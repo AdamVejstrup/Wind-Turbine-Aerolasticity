@@ -55,9 +55,9 @@ C = np.zeros(M.shape)
 
 K = np.zeros(M.shape)
 
-gf = np.zeros(x.shape)
-gf[0, 0] = dx[1, 0]**2 * np.cos(x[1, 0]) * sm
-gf[1, 0] = g*sm * np.cos(x[1, 0])
+gf = np.zeros(2)
+gf[0] = dx[1, 0]**2 * np.cos(x[1, 0]) * sm
+gf[1] = g*sm * np.cos(x[1, 0])
 
 
 if linear_newmark:
@@ -100,7 +100,7 @@ if linear_newmark:
 elif non_linear_newmark:
     
     ddx = np.zeros(x.shape)
-    ddx[:, 0] = np.linalg.inv(M) @ (gf[:, 0] - C @ dx[:, 0] - K @ x[:, 0])
+    ddx[:, 0] = np.linalg.inv(M) @ (gf - C @ dx[:, 0] - K @ x[:, 0])
     
     
     for n in range(1, len(time)):
@@ -109,13 +109,7 @@ elif non_linear_newmark:
         x_up = x[:, n-1] + h*dx[:, n-1] + 0.5* h**2 *ddx[:, n-1]
         dx_up = dx[:, n-1] + h*ddx[:, n-1]
         ddx_up = ddx[:, n-1]
-        
-        # Step 3: Residual
-        # M_up = np.array([[m2*L + m1, -sm*np.sin(x_up[1])],
-        #             [-sm*np.sin(x_up[1]), im]])
-        
-        # gf_up = np.array([dx_up[1]**2 * np.cos(x_up[1]) * sm,
-        #                 g*sm * np.cos(x_up[1])])
+
         counter = 0
         r = np.array([1, 1])
         
@@ -129,10 +123,13 @@ elif non_linear_newmark:
             # r = gf_up - M_up @ ddx_up[:, n] - C @ dx_up[:, n] - K @ x_up[:, n]
             r = gf_up - M_up @ ddx_up - C @ dx_up - K @ x_up
             
-            K_star = K + (gamma) / (beta * h) * C + 1/(beta * h**2) * M_up
+            K_star = K + gamma/(beta*h) * C + (1/(beta * h**2)) * M_up
             
             delta_x = np.linalg.inv(K_star) @ r
-            
+            #A -Mandag d 17.04
+            #Problemet er at i K_star bliver leddet (1/(beta * h**2)) meget stort
+            #når man så tager den inverse bliver det meget småt og det prikkes så med r som også er meget lille
+            #derfor bliver delta_x meget tæt på = 0 og derfor er der intet der opdateres. 
             
             x_up = x_up + delta_x
             dx_up = dx_up + gamma / (beta*h) * delta_x
