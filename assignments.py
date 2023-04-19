@@ -38,8 +38,10 @@ use_pitch = False
 use_dwf = True # Dynamic wake filter
 use_stall = True # Dynamic stall
 use_turbulence = False # Turbulent data
-use_pitch_controller = False # Pitch controller.
+use_pitch_controller = True # Pitch controller.
 use_tower_shadow = False #Tower shadow
+use_dof3 = True # Find deflections for 1 elastic blade (two other are stiff)
+use_dof11 = False
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.1 # s
@@ -70,6 +72,7 @@ plot_thrust_per_blade = False # Thrust for each blade and total thrust
 plot_pn_specific_element = False # Normal loading for specific blade and specific blade element
 plot_thrust_psd = False # PSD of total thrust
 plot_turbulence_contour = False # Contour plot of turbulence
+plot_deflection = True # Plot of deflections 
 
 # %% Force coeff files
 
@@ -101,9 +104,10 @@ r,beta_deg,c,tc = airfoils.T
 
 #%% Konstanter
 
+
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0 = 10 # mean windspeed at hub height m/s
+V_0 = 7 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H = 119  # Hub height m
@@ -116,18 +120,33 @@ lam_opt = 8 #
 P_rated = 10.64*10**6 #W
 rho = 1.225 # kg/m**3
 I_rotor = 1.6*10**8 #kg*m^2  inertia moment of the drivetrain
+beta_newmark = 0.27 #ceofficient used for newmark, given by Taeseong
+gamma_newmark = 0.51 #ceofficient used for newmark, given by Taeseong
+eps = 0.000001
 
 K1 = np.deg2rad(14) # rad
 K_I = 0.64 # no unit
 K_P = 1.5 # s
 
 C_p_opt = 0.47 #optimal C_p for DTU 10MW
-K = 0.5*rho*A*R**3 * (C_p_opt/lam_opt**3) #konstant der bruges til at regne M_g
-omega_rated = (P_rated/K)**(1/3)  
-M_g_max = K * omega_rated**2  #Vores max generator torque
-# M_g_max = K * 1.01**2  #Vores max generator torque
+K_const = 0.5*rho*A*R**3 * (C_p_opt/lam_opt**3) #konstant der bruges til at regne M_g
+omega_rated = (P_rated/K_const)**(1/3)  
+M_g_max = K_const * omega_rated**2  #Vores max generator torque
+# M_g_max = K_const * 1.01**2  #Vores max generator torque
 # omega_ref = 1.02 * omega_rated #tommelfingerregel fra Martin
 omega_ref = 1.01#tommelfingerregel fra Martin
+
+if use_pitch_controller:
+    omega = (lam_opt*V_0)/R 
+    # omega= 7.229*2*np.pi/60 # rad/s
+    omega_arr = np.zeros(timerange)
+    omega_arr[0] = omega
+    omega_arr[1] = omega
+    
+else:
+    omega= 7.229*2*np.pi/60 # rad/s    Til assignment 1 og 2
+    #omega = 0.628 #rad/s                 Til assignment 3 
+    omega_arr = np.full(timerange, omega)
 
 theta_cone = 0 # radianer
 theta_yaw = np.deg2rad(0) # radianer
@@ -142,6 +161,17 @@ theta_p_max_vel = np.deg2rad(9) #radianer, max pitch vinkel ændring per sekund
 # Dynamic wake filter constant
 k_dwf = 0.6
 
+# Mass and modeshape data
+# Modes: first flapwise, first edgewise, second flapwise
+omega1f, omega1e, omega2f = 3.93, 6.10, 11.28 # rad/s
+
+# Loading the data
+# Order of columns:
+# r [m]   u1fy [m]   u1fz [m]   u1ey [m]    u1ez [m]    u2fy [m]     u2fz [m]     m [kg/m]
+mode_shapes = np.loadtxt('modeshapes.txt', skiprows=2)
+
+# Defining the mode shapes and mass of the airfoils
+u1fy, u1fz, u1ey, u1ez, u2fy, u2fz, r_mass = mode_shapes[:, 1:].T
 
 
 
@@ -219,6 +249,18 @@ rt1 = np.array([H,0,0])
 
 rs1 = a21@np.array([0,0,-L_s])
 
+#%% Newmark matrices
+
+if use_dof3:
+    M = np.zeros([3, 3])
+    M[0, 0] = np.trapz(r_mass*u1fy**2 + r_mass*u1fz**2,r)
+    M[1, 1] = np.trapz(r_mass*u1ey**2 + r_mass*u1ez**2,r)
+    M[2, 2] = np.trapz(r_mass*u2fy**2 + r_mass*u2fz**2,r)
+
+    K = np.zeros([3,3])
+    K[0, 0] = omega1f**2 * M[0, 0]
+    K[1, 1] = omega1e**2 * M[1, 1]
+    K[2, 2] = omega2f**2 * M[2, 2]
 
 #%% Array initializations
 
@@ -265,23 +307,25 @@ pn_arr = np.zeros([len(airfoils), B, timerange])
 fs_arr = np.zeros([len(airfoils), B, timerange])
 cl_arr = np.zeros([len(airfoils), B, timerange])
 
-if use_pitch_controller:
-    omega = (lam_opt*V_0)/R 
-    # omega= 7.229*2*np.pi/60 # rad/s
-    omega_arr = np.zeros(timerange)
-    omega_arr[0] = omega
-    omega_arr[1] = omega
-    
-else:
-    omega= 7.229*2*np.pi/60 # rad/s
-    omega_arr = np.full(timerange, omega)
-
 theta_p_arr = np.zeros(timerange)
 theta_p_arr[0] = np.deg2rad(25) 
 
 theta_p_I_arr = np.zeros(timerange)
 
 theta_blade1=[omega*delta_t,omega*delta_t*2]
+
+#Position, velocity and acceleration
+x = np.zeros([len(M), timerange])
+dx = np.zeros(x.shape)
+ddx = np.zeros(x.shape)
+
+uy = np.zeros([len(r), timerange])
+uz = np.zeros([len(r), timerange])
+duy = np.zeros([len(r), timerange])
+duz = np.zeros([len(r), timerange])
+dduy = np.zeros([len(r), timerange])
+dduz = np.zeros([len(r), timerange])
+
 
 #%% Looping over time, blades, airfoils
 for n in range(1,timerange):
@@ -339,7 +383,7 @@ for n in range(1,timerange):
             
 
             if use_turbulence:
-                turb = f2d([x1_arr[k, i, n]],[y1_arr[k, i, n]])[0]
+                turb = f2d([x1_arr[k, i, n]], [y1_arr[k, i, n]])[0]
                 
                 # v_arr[n] = f([x_arr[n]],[y_arr[n]])
                 # v_arr_point[n] = f(point_x,point_y)
@@ -366,14 +410,24 @@ for n in range(1,timerange):
                 Vr=z1_arr[k,i,n]/r_til_punkt*V0z_arr[k,i,n]*(1-(tower_rad/r_til_punkt)**2)
                 Vtheta=y1_arr[k,i,n]/r_til_punkt*V0z_arr[k,i,n]*(1+(tower_rad/r_til_punkt)**2)
                 
+                #evt også tilføje deflections 
                 V_rel_y_arr[k, i, n]=(z1_arr[k,i,n]/r_til_punkt)*Vr  +  (y1_arr[k,i,n]/r_til_punkt)*Vtheta
                 V_rel_z_arr[k, i, n]=(y1_arr[k,i,n]/r_til_punkt)*Vr  -  (z1_arr[k,i,n]/r_til_punkt)*Vtheta
+            
+                
             else:    
             # Kommentar til r: Vi bruger r i nedenstående fordi den allerede er givet i system 4,
             # hvilket vores relative hastigheder også er
                 V_rel_y_arr[k, i, n] = V0y_arr[k, i, n] + Wy_arr[k, i, n-1] - omega_arr[n-1] * r[k] * np.cos(theta_cone)
                 V_rel_z_arr[k, i, n] = V0z_arr[k, i, n] + Wz_arr[k, i, n-1]
+                
+            if use_dof3:
+                if i == 0:
+                    V_rel_y_arr[k, i, n] = V_rel_y_arr[k, i, n] - duy[k, n-1]
+                    V_rel_z_arr[k, i, n] = V_rel_z_arr[k, i, n] - duz[k, n-1]
             
+            if use_dof11:
+                pass
 
             phi = np.arctan(V_rel_z_arr[k, i, n]/(-V_rel_y_arr[k, i, n]))
             
@@ -425,6 +479,7 @@ for n in range(1,timerange):
             pt_arr[k, i, n]=p_y
             pn_arr[k, i, n]=p_z
             
+            
             # F = 1
             # Når man laver 
             if np.sin(abs(phi)) <= 0.01 or R-r[k] <= 0.005:
@@ -470,6 +525,67 @@ for n in range(1,timerange):
     T = np.trapz(np.sum(pn_arr,axis=1)[:,n],r)
     T_arr[n] = T
     
+    #%% Newmark - deflection
+    if use_dof3: 
+        GF = np.zeros([3])
+        # GF for 1 blade per timestep
+        GF[0] = np.trapz(pt_arr[:, 0, n]*u1fy,r) + np.trapz(pn_arr[:, 0, n]*u1fz,r) 
+        GF[1] = np.trapz(pt_arr[:, 0, n]*u1ey,r) + np.trapz(pn_arr[:, 0, n]*u1ez,r)
+        GF[2] = np.trapz(pt_arr[:, 0, n]*u2fy,r) + np.trapz(pn_arr[:, 0, n]*u2fz,r)
+    
+    
+        ddx[:, 0] = np.linalg.inv(M) @ (GF - K @ x[:, 0])
+
+
+        # Step 2: Predictions of position, velocity and acceleration
+        x_up = x[:, n-1] + delta_t*dx[:, n-1] + 0.5* delta_t**2 *ddx[:, n-1]
+        dx_up = dx[:, n-1] + delta_t*ddx[:, n-1]
+        ddx_up = ddx[:, n-1]
+
+
+        # Step 3: Residual calculation
+        counter = 0
+        residual = np.array([1, 1])
+        
+        while max(abs(residual)) > eps and counter < 600:
+            
+            M_up = M
+            
+            GF_up = GF
+            
+            #Calculate residual
+            residual = GF_up - M_up @ ddx_up - K @ x_up
+            
+            K_star = K + (1/(beta_newmark * delta_t**2)) * M_up
+            
+            delta_x = np.linalg.inv(K_star) @ residual
+            
+            #Update dof
+            x_up = x_up + delta_x
+            dx_up = dx_up + gamma_newmark / (beta_newmark*delta_t) * delta_x
+            ddx_up = ddx_up + 1 / (beta_newmark*delta_t**2) * delta_x
+
+            # Update counter
+            counter = counter + 1
+        
+        # Save updated dof
+        x[:, n] = x_up
+        dx[:, n] = dx_up
+        ddx[:, n] = ddx_up
+        
+        # displacement vectors
+        uy[:, n] = x[0, n]*u1fy + x[1, n]*u1ey + x[2, n]*u2fy
+        uz[:, n] = x[0, n]*u1fz + x[1, n]*u1ez + x[2, n]*u2fz
+        
+        # velocity vectors
+        duy[:, n] = dx[0, n]*u1fy + dx[1, n]*u1ey + dx[2, n]*u2fy
+        duz[:, n] = dx[0, n]*u1fz + dx[1, n]*u1ez + dx[2, n]*u2fz
+        
+        # acceleration vectors
+        dduy[:, n] = ddx[0, n]*u1fy + ddx[1, n]*u1ey + ddx[2, n]*u2fy
+        dduz[:, n] = ddx[0, n]*u1fz + ddx[1, n]*u1ez + ddx[2, n]*u2fz
+        
+        
     #%% update omega and pitch til pitch controller
     
     if use_pitch_controller:
@@ -477,7 +593,7 @@ for n in range(1,timerange):
         #Region 1
         if omega_arr[n-1] < omega_ref: 
             #update omega
-            M_g = K * omega_arr[n-1]**2
+            M_g = K_const * omega_arr[n-1]**2
             
         # Region 2+3
         else:
@@ -516,14 +632,15 @@ for n in range(1,timerange):
             
         #update omega
         omega_arr[n] = omega_arr[n-1] + ((M_r - M_g)/ I_rotor) * delta_t
-
+    
+    
 
 #%% PLot af M_g mod omega (generator torque mod roational speed)
 mask = x_mask(time_arr, xlim_min, xlim_max)
 
 # Plotting generator characteristic
 if plot_gen_char:
-    make_gen_char(omega_rated, K)
+    make_gen_char(omega_rated, K_const)
 
 #%% omega of pitch plot
 mask = x_mask(time_arr, xlim_min, xlim_max)
@@ -568,7 +685,24 @@ if plot_theta_p:
     plt.show()
 
     print('For V0=', V_0, 'theta_pitch=', np.rad2deg(theta_p_arr[-1]), 'deg')
-          
+
+#%% Plot af deflection
+
+if plot_deflection:
+    plt.figure()
+    plt.grid()
+    plt.title('deflection')
+    # plt.plot(time_arr[mask], uz[mask], label = 'uz')
+    plt.plot(time_arr, uz[len(r)-1, :], label = 'uz at r = 89')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Deflection [m]')
+    # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    plt.xlim(time_arr[0], time_arr[-1])
+    plt.legend()
+    plt.show()
+
+
+
 #%% Plot x og y position sammmen for en given airfoil
 mask = x_mask(time_arr, xlim_min, xlim_max)
 
