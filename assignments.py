@@ -38,14 +38,14 @@ use_pitch = False
 use_dwf = True # Dynamic wake filter
 use_stall = True # Dynamic stall
 use_turbulence = False # Turbulent data
-use_pitch_controller = True # Pitch controller.
+use_pitch_controller = False # Pitch controller.
 use_tower_shadow = False #Tower shadow
 use_dof3 = True # Find deflections for 1 elastic blade (two other are stiff)
 use_dof11 = False
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.1 # s
-#timerange=4096
+# timerange=4096
 timerange=200*3
 
 #for the plots, plots from xlim_min and forward
@@ -144,8 +144,8 @@ if use_pitch_controller:
     omega_arr[1] = omega
     
 else:
-    omega= 7.229*2*np.pi/60 # rad/s    Til assignment 1 og 2
-    #omega = 0.628 #rad/s                 Til assignment 3 
+    # omega= 7.229*2*np.pi/60 # rad/s    Til assignment 1 og 2
+    omega = 0.628 #rad/s                 Til assignment 3 
     omega_arr = np.full(timerange, omega)
 
 theta_cone = 0 # radianer
@@ -514,7 +514,7 @@ for n in range(1,timerange):
        
     # OBS: i stedet for at gange op til 3 blades så summeres de faktiske værdier
     M_r = np.trapz(np.sum(pt_arr,axis=1)[:,n]*r,r)
-    
+        
     P_arr[n] = omega_arr[n-1]*M_r
 
 
@@ -585,7 +585,10 @@ for n in range(1,timerange):
         dduy[:, n] = ddx[0, n]*u1fy + ddx[1, n]*u1ey + ddx[2, n]*u2fy
         dduz[:, n] = ddx[0, n]*u1fz + ddx[1, n]*u1ez + ddx[2, n]*u2fz
         
-        
+    #Bending moment for blade 1 for hvert tidskridt ved r=2.8
+    M_blade1_flap = np.zeros(timerange)
+    M_blade1_flap[n] = np.trapz(pt_arr [:, 0, n]* (r - r[0]) - r_mass*dduy[:,n], (r-r[0]))
+    
     #%% update omega and pitch til pitch controller
     
     if use_pitch_controller:
@@ -693,15 +696,55 @@ if plot_deflection:
     plt.grid()
     plt.title('deflection')
     # plt.plot(time_arr[mask], uz[mask], label = 'uz')
-    plt.plot(time_arr, uz[len(r)-1, :], label = 'uz at r = 89')
+    plt.plot(time_arr, uz[-1, :], label = 'Flapwise tip deflection')
+    plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
     plt.xlabel('Time [s]')
     plt.ylabel('Deflection [m]')
     # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
     plt.xlim(time_arr[0], time_arr[-1])
     plt.legend()
     plt.show()
+    
+    # PSD plot for deflection
+    # Need to discard the first few seconds to avoid the transcient part which
+    # has a hight impact on the psd. Seconds to discard:
+    sec_to_dis = 5
+    # observations to discard
+    obs_to_dis = int(sec_to_dis/delta_t)
+    
+    # Frequency for psd
+    fs=1/(time_arr[1]-time_arr[0])
+    
+    #Compute and plot the power spectral density. 
+    uz_freq, uz_psd = signal.welch(uz[-1, obs_to_dis:], fs, nperseg=1024)
+    uy_freq, uy_psd = signal.welch(uy[-1, obs_to_dis:], fs, nperseg=1024)
+    
+    fig,ax = plt.subplots(1,1)
+    plt.plot(uz_freq*2*np.pi/omega, uz_psd, label='Flapwise tip deflection')
+    plt.plot(uy_freq*2*np.pi/omega, uy_psd, label='Edgewise tip deflection')
+    # plt.plot(uz_freq, uz_psd, label='Flapwise tip deflection')
+    # plt.plot(uy_freq, uy_psd, label='Edgewise tip deflection')
+    ax.set( xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(m)^{2} / Hz$]')
+    # Sætter y lim, så den er lidt højere end peaket
+    # ylim_filter = (uz_freq*2*np.pi/omega) > 1
+    # ax.set_ylim(0,uz_psd[ylim_filter].max()*1.1)
+    ax.set_title('Power spectral density of deflection')
+    ax.grid()
+    plt.legend()
+    plt.show()
 
-
+    #Plot of Bending moment at r = 2.8m
+    plt.figure()
+    plt.grid()
+    plt.title('Bending moment at root')
+    plt.plot(time_arr, M_blade1_flap, label = 'Flapwise bending moment at root')
+    # plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Bending moment [N*m]')
+    # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    # plt.xlim(time_arr[0], time_arr[-1])
+    plt.legend()
+    plt.show()
 
 #%% Plot x og y position sammmen for en given airfoil
 mask = x_mask(time_arr, xlim_min, xlim_max)
@@ -916,6 +959,14 @@ if plot_pn_specific_element:
 # PSD of total thrust
 
 if plot_thrust_psd:
+    # Need to discard the first few seconds to avoid the transcient part which
+    # has a hight impact on the psd. Seconds to discard:
+    sec_to_dis = 50
+    # observations to discard
+    obs_to_dis = int(sec_to_dis/delta_t)
+    
+    # Frequency for psd
+    fs=1/(time_arr[1]-time_arr[0])
     
     #Compute and plot the power spectral density. 
     T_freq, T_psd = signal.welch(T_arr[obs_to_dis:], fs, nperseg=1024)
