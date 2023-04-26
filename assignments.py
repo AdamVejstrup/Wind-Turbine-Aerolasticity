@@ -40,8 +40,8 @@ use_stall = True # Dynamic stall
 use_turbulence = False # Turbulent data
 use_pitch_controller = False # Pitch controller.
 use_tower_shadow = False #Tower shadow
-use_dof3 = True # Find deflections for 1 elastic blade (two other are stiff)
-use_dof11 = False
+use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
+use_dof11 = True
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.1 # s
@@ -123,6 +123,8 @@ I_rotor = 1.6*10**8 #kg*m^2  inertia moment of the drivetrain
 beta_newmark = 0.27 #ceofficient used for newmark, given by Taeseong
 gamma_newmark = 0.51 #ceofficient used for newmark, given by Taeseong
 eps = 0.000001
+mass_nac = 446000 #kg mass of nacelle
+tower_stiff = 1.7*10**6 #N/mstifness of tower spring
 
 K1 = np.deg2rad(14) # rad
 K_I = 0.64 # no unit
@@ -261,6 +263,82 @@ if use_dof3:
     K[0, 0] = omega1f**2 * M[0, 0]
     K[1, 1] = omega1e**2 * M[1, 1]
     K[2, 2] = omega2f**2 * M[2, 2]
+    
+if use_dof11:
+    M = np.zeros([11, 11])
+    M[0, 0] = mass_nac + np.trapz(r_mass,r) * 3
+    M[2, 0] = np.trapz(r_mass * u1fz, r)
+    M[3, 0] = np.trapz(r_mass * u1ez, r)
+    M[4, 0] = np.trapz(r_mass * u2fz, r)
+    M[5, 0] = M[2, 0]
+    M[6, 0] = M[3, 0]
+    M[7, 0] = M[4, 0]
+    M[8, 0] = M[2, 0]
+    M[9, 0] = M[3, 0]
+    M[10, 0] = M[4, 0]
+    
+    M[1, 1] = I_rotor
+    M[2, 1] = np.trapz(r_mass * r * np.cos(theta_cone) * u1fy, r)
+    M[3, 1] = np.trapz(r_mass * r * np.cos(theta_cone) * u1ey, r)
+    M[4, 1] = np.trapz(r_mass * r * np.cos(theta_cone) * u2fy, r)
+    M[5, 1] = M[2, 1]
+    M[6, 1] = M[3, 1]
+    M[7, 1] = M[4, 1]
+    M[8, 1] = M[2, 1]
+    M[9, 1] = M[3, 1]
+    M[10, 1] = M[4, 1]
+    
+    M[0, 2] = M[2, 0]
+    M[1, 2] = M[2, 1]
+    M[2, 2] = np.trapz(r_mass*u1fy**2 + r_mass*u1fz**2,r)
+    
+    M[0, 3] = M[3, 0]
+    M[1, 3] = M[3, 1]
+    M[3, 3] = np.trapz(r_mass*u1ey**2 + r_mass*u1ez**2,r)
+    
+    M[0, 4] = M[4, 0]
+    M[1, 4] = M[4, 1]
+    M[4, 4] = np.trapz(r_mass*u2fy**2 + r_mass*u2fz**2,r)
+    
+    M[0, 5] = M[5, 0]
+    M[1, 5] = M[5, 1]
+    M[5, 5] = M[2, 2]
+    
+    M[0, 6] = M[6, 0]
+    M[1, 6] = M[6, 1]
+    M[6, 6] = M[3, 3]
+    
+    M[0, 7] = M[7, 0]
+    M[1, 7] = M[7, 1]
+    M[7, 7] = M[4, 4]
+    
+    M[0, 8] = M[5, 0]
+    M[1, 8] = M[5, 1]
+    M[8, 8] = M[2, 2]
+    
+    M[0, 9] = M[6, 0]
+    M[1, 9] = M[6, 1]
+    M[9, 9] = M[3, 3]
+        
+    M[0, 10] = M[7, 0]
+    M[1, 10] = M[7, 1]
+    M[10, 10] = M[4, 4]
+    
+    
+    K = np.zeros([11,11])
+    K[0, 0] = tower_stiff
+    K[1, 1] = 0
+    K[2, 2] = omega1f**2 * M[2, 2]
+    K[3, 3] = omega1e**2 * M[3, 3]
+    K[4, 4] = omega2f**2 * M[4, 4]
+    K[5, 5] = K[2, 2]
+    K[6, 6] = K[3, 3]
+    K[7, 7] = K[4, 4]
+    K[8, 8] = K[2, 2]
+    K[9, 9] = K[3, 3]
+    K[10, 10] = K[4, 4]
+    
+    
 
 #%% Array initializations
 
@@ -427,7 +505,8 @@ for n in range(1,timerange):
                     V_rel_z_arr[k, i, n] = V_rel_z_arr[k, i, n] - duz[k, n-1]
             
             if use_dof11:
-                pass
+                V_rel_y_arr[k, i, n] = V_rel_y_arr[k, i, n] - duy[k, n-1]
+                V_rel_z_arr[k, i, n] = V_rel_z_arr[k, i, n] - duz[k, n-1]
 
             phi = np.arctan(V_rel_z_arr[k, i, n]/(-V_rel_y_arr[k, i, n]))
             
@@ -526,13 +605,35 @@ for n in range(1,timerange):
     T_arr[n] = T
     
     #%% Newmark - deflection
-    if use_dof3: 
-        GF = np.zeros([3])
-        # GF for 1 blade per timestep
-        GF[0] = np.trapz(pt_arr[:, 0, n]*u1fy,r) + np.trapz(pn_arr[:, 0, n]*u1fz,r) 
-        GF[1] = np.trapz(pt_arr[:, 0, n]*u1ey,r) + np.trapz(pn_arr[:, 0, n]*u1ez,r)
-        GF[2] = np.trapz(pt_arr[:, 0, n]*u2fy,r) + np.trapz(pn_arr[:, 0, n]*u2fz,r)
-    
+    if use_dof3 or use_dof11:
+        if use_dof3:
+            GF = np.zeros([3])
+            # GF for 1 blade per timestep
+            GF[0] = np.trapz(pt_arr[:, 0, n]*u1fy,r) + np.trapz(pn_arr[:, 0, n]*u1fz,r) 
+            GF[1] = np.trapz(pt_arr[:, 0, n]*u1ey,r) + np.trapz(pn_arr[:, 0, n]*u1ez,r)
+            GF[2] = np.trapz(pt_arr[:, 0, n]*u2fy,r) + np.trapz(pn_arr[:, 0, n]*u2fz,r)
+        
+        
+        if use_dof11:
+            # Calculate M_g (generator momentum)
+            if omega_arr[n-1] < omega_ref: 
+                M_g = K_const * omega_arr[n-1]**2
+            
+            else:
+                M_g = 1.0545* 10**7
+                
+            #GF for 11 dof system
+            GF[0] = T
+            GF[1] = M_r - M_g
+            GF[2] = np.trapz(pt_arr[:, 0, n]*u1fy,r) + np.trapz(pn_arr[:, 0, n]*u1fz,r) 
+            GF[3] = np.trapz(pt_arr[:, 0, n]*u1ey,r) + np.trapz(pn_arr[:, 0, n]*u1ez,r)
+            GF[4] = np.trapz(pt_arr[:, 0, n]*u2fy,r) + np.trapz(pn_arr[:, 0, n]*u2fz,r)
+            GF[5] = GF[2]
+            GF[6] = GF[3]
+            GF[7] = GF[4]
+            GF[8] = GF[2]
+            GF[9] = GF[3]
+            GF[10] = GF[4]
     
         ddx[:, 0] = np.linalg.inv(M) @ (GF - K @ x[:, 0])
 
@@ -547,7 +648,8 @@ for n in range(1,timerange):
         counter = 0
         residual = np.array([1, 1])
         
-        while max(abs(residual)) > eps and counter < 600:
+        while max(abs(residual)) > eps and counter < 600: 
+            # NÅET HER TIL - d 26/4
             
             M_up = M
             
@@ -742,7 +844,7 @@ if plot_deflection:
     plt.xlabel('Time [s]')
     plt.ylabel('Bending moment [N*m]')
     # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
-    # plt.xlim(time_arr[0], time_arr[-1])
+    plt.xlim(time_arr[0], time_arr[-1])
     plt.legend()
     plt.show()
 
