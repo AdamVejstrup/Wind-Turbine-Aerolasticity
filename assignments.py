@@ -40,13 +40,13 @@ use_stall = True # Dynamic stall
 use_turbulence = False # Turbulent data
 use_pitch_controller = False # Pitch controller.
 use_tower_shadow = False #Tower shadow
-use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
-use_dof11 = True
+use_dof3 = True # Find deflections for 1 elastic blade (two other are stiff)
+use_dof11 = False
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.1 # s
-# timerange=4096
-timerange=200*3
+timerange=4096
+#timerange=200*3
 
 #for the plots, plots from xlim_min and forward
 xlim_min = 30  #s
@@ -404,6 +404,8 @@ duz = np.zeros([len(r), timerange])
 dduy = np.zeros([len(r), timerange])
 dduz = np.zeros([len(r), timerange])
 
+M_blade1_flap = np.zeros(timerange)
+M_blade1_edge = np.zeros(timerange)
 
 #%% Looping over time, blades, airfoils
 for n in range(1,timerange):
@@ -688,9 +690,10 @@ for n in range(1,timerange):
         dduz[:, n] = ddx[0, n]*u1fz + ddx[1, n]*u1ez + ddx[2, n]*u2fz
         
     #Bending moment for blade 1 for hvert tidskridt ved r=2.8
-    M_blade1_flap = np.zeros(timerange)
-    M_blade1_flap[n] = np.trapz(pt_arr [:, 0, n]* (r - r[0]) - r_mass*dduy[:,n], (r-r[0]))
-    
+    M_blade1_flap[n] = np.trapz(pt_arr [:, 0, n]* (r - r[0]) - r_mass*dduy[:,n], (r-r[0])  )
+    M_blade1_edge[n] = np.trapz(pn_arr [:, 0, n]* (r - r[0]) - r_mass*dduz[:,n], (r-r[0])  )
+
+
     #%% update omega and pitch til pitch controller
     
     if use_pitch_controller:
@@ -839,12 +842,29 @@ if plot_deflection:
     plt.figure()
     plt.grid()
     plt.title('Bending moment at root')
-    plt.plot(time_arr, M_blade1_flap, label = 'Flapwise bending moment at root')
+    plt.plot(time_arr, M_blade1_flap*10**(-6), label = 'Flapwise bending moment at root')
     # plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
     plt.xlabel('Time [s]')
-    plt.ylabel('Bending moment [N*m]')
+    plt.ylabel('Bending moment $[N\cdot m]$')
     # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
-    plt.xlim(time_arr[0], time_arr[-1])
+    #plt.xlim(time_arr[0], time_arr[-1])
+    plt.xlim(300, 400)
+    plt.ylim(1.23,1.24)
+    plt.legend()
+    plt.show()
+
+    #Plot of Bending moment at r = 2.8m
+    plt.figure()
+    plt.grid()
+    plt.title('Bending moment at root')
+    plt.plot(time_arr, M_blade1_edge*10**(-6), label = 'Edgewise bending moment at root')
+    # plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
+    plt.xlabel('Time [s]')
+    plt.ylabel('Bending moment $[N\cdot m]$')
+    # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    #plt.xlim(time_arr[0], time_arr[-1])
+    plt.xlim(300, 400)
+    plt.ylim(12.1,12.2)
     plt.legend()
     plt.show()
 
