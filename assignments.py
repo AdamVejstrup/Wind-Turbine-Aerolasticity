@@ -799,21 +799,23 @@ if plot_theta_p:
 if plot_deflection:
     plt.figure()
     plt.grid()
-    plt.title('deflection')
+    plt.title('Deflection')
     # plt.plot(time_arr[mask], uz[mask], label = 'uz')
     plt.plot(time_arr, uz[-1, :], label = 'Flapwise tip deflection')
     plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
     plt.xlabel('Time [s]')
     plt.ylabel('Deflection [m]')
     # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
-    plt.xlim(time_arr[0], time_arr[-1])
+    #plt.xlim(time_arr[0], time_arr[-1])
+    plt.xlim(300,400)
+    plt.ylim(0,4.5)
     plt.legend()
     plt.show()
     
     # PSD plot for deflection
     # Need to discard the first few seconds to avoid the transcient part which
     # has a hight impact on the psd. Seconds to discard:
-    sec_to_dis = 5
+    sec_to_dis = 300
     # observations to discard
     obs_to_dis = int(sec_to_dis/delta_t)
     
@@ -825,8 +827,9 @@ if plot_deflection:
     uy_freq, uy_psd = signal.welch(uy[-1, obs_to_dis:], fs, nperseg=1024)
     
     fig,ax = plt.subplots(1,1)
+    
+    plt.plot(uy_freq*2*np.pi/omega, uy_psd, color='darkorange',label='Edgewise tip deflection')
     plt.plot(uz_freq*2*np.pi/omega, uz_psd, label='Flapwise tip deflection')
-    plt.plot(uy_freq*2*np.pi/omega, uy_psd, label='Edgewise tip deflection')
     # plt.plot(uz_freq, uz_psd, label='Flapwise tip deflection')
     # plt.plot(uy_freq, uy_psd, label='Edgewise tip deflection')
     ax.set( xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(m)^{2} / Hz$]')
@@ -835,6 +838,7 @@ if plot_deflection:
     # ax.set_ylim(0,uz_psd[ylim_filter].max()*1.1)
     ax.set_title('Power spectral density of deflection')
     ax.grid()
+    plt.xlim(0,50)
     plt.legend()
     plt.show()
 
@@ -845,7 +849,7 @@ if plot_deflection:
     plt.plot(time_arr, M_blade1_flap*10**(-6), label = 'Flapwise bending moment at root')
     # plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
     plt.xlabel('Time [s]')
-    plt.ylabel('Bending moment $[N\cdot m]$')
+    plt.ylabel('Bending moment $[MN\cdot m]$')
     # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
     #plt.xlim(time_arr[0], time_arr[-1])
     plt.xlim(300, 400)
@@ -857,16 +861,41 @@ if plot_deflection:
     plt.figure()
     plt.grid()
     plt.title('Bending moment at root')
-    plt.plot(time_arr, M_blade1_edge*10**(-6), label = 'Edgewise bending moment at root')
+    plt.plot(time_arr, M_blade1_edge*10**(-6), color='darkorange',label = 'Edgewise bending moment at root')
     # plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
     plt.xlabel('Time [s]')
-    plt.ylabel('Bending moment $[N\cdot m]$')
+    plt.ylabel('Bending moment $[MN\cdot m]$')
     # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
     #plt.xlim(time_arr[0], time_arr[-1])
     plt.xlim(300, 400)
-    plt.ylim(12.1,12.2)
+    plt.ylim(12.1,12.15)
     plt.legend()
     plt.show()
+
+    #Compute and plot the power spectral density. 
+    M_blade1_flap_freq, M_blade1_flap_psd = signal.welch(M_blade1_flap[obs_to_dis:], fs, nperseg=1024)
+    M_blade1_edge_freq, M_blade1_edge_psd = signal.welch(M_blade1_edge[obs_to_dis:], fs, nperseg=1024)
+
+    fig,ax = plt.subplots(1,1)
+    
+    plt.plot(M_blade1_edge_freq*2*np.pi/omega, M_blade1_edge_psd*10**(-6), color='darkorange', label='Edgewise bending moment')    
+    plt.plot(M_blade1_flap_freq*2*np.pi/omega, M_blade1_flap_psd*10**(-6),label='Flapwise bending moment')
+    ax.set( xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(m)^{2} / Hz$]')
+    ax.set_title('Power spectral density of bending moment')
+    ax.grid()
+    plt.xlim(0,50)
+    plt.legend()
+    plt.show()
+
+
+
+
+
+
+
+
+
+
 
 #%% Plot x og y position sammmen for en given airfoil
 mask = x_mask(time_arr, xlim_min, xlim_max)
