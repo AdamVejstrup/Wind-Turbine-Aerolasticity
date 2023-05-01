@@ -42,8 +42,8 @@ use_stall = True # Dynamic stall
 use_turbulence = False # Turbulent data
 use_pitch_controller = True # Pitch controller.
 use_tower_shadow = False #Tower shadow
-use_dof3 = True # Find deflections for 1 elastic blade (two other are stiff)
-use_dof11 = False
+use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
+use_dof11 = True
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.1 # s
@@ -75,6 +75,7 @@ plot_pn_specific_element = False # Normal loading for specific blade and specifi
 plot_thrust_psd = False # PSD of total thrust
 plot_turbulence_contour = False # Contour plot of turbulence
 plot_deflection = True # Plot of deflections 
+plot_bending_moment = False # Plot of bending moment, time and PSD
 
 # %% Force coeff files
 
@@ -109,7 +110,7 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0 = 7 # mean windspeed at hub height m/s
+V_0 = 15 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H = 119  # Hub height m
@@ -404,12 +405,12 @@ x = np.zeros([len(M), timerange])
 dx = np.zeros(x.shape)
 ddx = np.zeros(x.shape)
 
-uy = np.zeros([len(r), timerange])
-uz = np.zeros([len(r), timerange])
-duy = np.zeros([len(r), timerange])
-duz = np.zeros([len(r), timerange])
-dduy = np.zeros([len(r), timerange])
-dduz = np.zeros([len(r), timerange])
+uy = np.zeros([len(r),timerange])
+uz = np.zeros(uy.shape)
+duy = np.zeros(uy.shape)
+duz = np.zeros(uy.shape)
+dduy = np.zeros(uy.shape)
+dduz = np.zeros(uy.shape)
 
 M_blade1_flap = np.zeros(timerange)
 M_blade1_edge = np.zeros(timerange)
@@ -419,7 +420,7 @@ for n in range(1,timerange):
     #%% Time loop
     
     time_arr[n] = n*delta_t
-    theta_blade1.append(theta_blade1[n-1]+omega*delta_t)
+    theta_blade1.append(theta_blade1[n-1]+omega_arr[n-1]*delta_t)
     
     if use_pitch:
         if 100 <= time_arr[n] <= 150:
@@ -509,13 +510,13 @@ for n in range(1,timerange):
                 V_rel_z_arr[k, i, n] = V0z_arr[k, i, n] + Wz_arr[k, i, n-1]
                 
             if use_dof3:
-                if i == 0:
+                if i == 0: #kun for blade 1 (derfor i == 0)
                     V_rel_y_arr[k, i, n] = V_rel_y_arr[k, i, n] - duy[k, n-1]
                     V_rel_z_arr[k, i, n] = V_rel_z_arr[k, i, n] - duz[k, n-1]
             
             if use_dof11:
                 V_rel_y_arr[k, i, n] = V_rel_y_arr[k, i, n] - duy[k, n-1]
-                V_rel_z_arr[k, i, n] = V_rel_z_arr[k, i, n] - duz[k, n-1] - duz[0, n-1]
+                V_rel_z_arr[k, i, n] = V_rel_z_arr[k, i, n] - duz[k, n-1] - dx[0, n-1]
 
             phi = np.arctan(V_rel_z_arr[k, i, n]/(-V_rel_y_arr[k, i, n]))
             
@@ -628,9 +629,14 @@ for n in range(1,timerange):
             #GF for 11 dof system
             GF[0] = T
             GF[1] = M_r - M_g
-            GF[2] = np.trapz(pt_arr[:, 0, n]*u1fy,r) + np.trapz(pn_arr[:, 0, n]*u1fz,r) 
-            GF[3] = np.trapz(pt_arr[:, 0, n]*u1ey,r) + np.trapz(pn_arr[:, 0, n]*u1ez,r)
-            GF[4] = np.trapz(pt_arr[:, 0, n]*u2fy,r) + np.trapz(pn_arr[:, 0, n]*u2fz,r)
+            GF[2] = (np.trapz(pt_arr[:, 0, n]*pitch_correct_y(u1fy, theta_p),r) 
+                     + np.trapz(pn_arr[:, 0, n]*pitch_correct_z(u1fz, theta_p),r) )
+            
+            GF[3] = (np.trapz(pt_arr[:, 0, n]*pitch_correct_y(u1ey, theta_p),r) 
+                     + np.trapz(pn_arr[:, 0, n]*pitch_correct_z(u1ez, theta_p),r))
+            
+            GF[4] = (np.trapz(pt_arr[:, 0, n]*pitch_correct_y(u2fy, theta_p),r) 
+                     + np.trapz(pn_arr[:, 0, n]*pitch_correct_z(u2fz, theta_p),r))
             GF[5] = GF[2]
             GF[6] = GF[3]
             GF[7] = GF[4]
@@ -652,8 +658,6 @@ for n in range(1,timerange):
         residual = np.array([1, 1])
         
         while max(abs(residual)) > eps and counter < 600: 
-            # NÅET HER TIL - d 26/4
-            
             
             if use_dof11:
                 # update Mass matrix
@@ -768,17 +772,30 @@ for n in range(1,timerange):
         dx[:, n] = dx_up
         ddx[:, n] = ddx_up
         
-        # displacement vectors
-        uy[:, n] = x[0, n]*u1fy + x[1, n]*u1ey + x[2, n]*u2fy
-        uz[:, n] = x[0, n]*u1fz + x[1, n]*u1ez + x[2, n]*u2fz
+        # displacement vectors  for 1 blade
+        uy[:, n] = (x[2, n]*pitch_correct_y(u1fy, theta_p) 
+                    + x[3, n]*pitch_correct_y(u1ey, theta_p) 
+                    + x[4, n]*pitch_correct_y(u2fy, theta_p))
         
-        # velocity vectors
-        duy[:, n] = dx[0, n]*u1fy + dx[1, n]*u1ey + dx[2, n]*u2fy
-        duz[:, n] = dx[0, n]*u1fz + dx[1, n]*u1ez + dx[2, n]*u2fz
+        uz[:, n] = (x[2, n]*pitch_correct_z(u1fz, theta_p) 
+                    + x[3, n]*pitch_correct_z(u1ez, theta_p) 
+                    + x[4, n]*pitch_correct_z(u2fz, theta_p))
         
-        # acceleration vectors
-        dduy[:, n] = ddx[0, n]*u1fy + ddx[1, n]*u1ey + ddx[2, n]*u2fy
-        dduz[:, n] = ddx[0, n]*u1fz + ddx[1, n]*u1ez + ddx[2, n]*u2fz
+        # velocity vectors for 1 blade
+        duy[:, n] = (dx[2, n]*pitch_correct_y(u1fy, theta_p) 
+                     + dx[3, n]*pitch_correct_y(u1ey, theta_p) 
+                     + dx[4, n]*pitch_correct_y(u2fy, theta_p))
+        duz[:, n] = (dx[2, n]*pitch_correct_z(u1fz, theta_p) 
+                     + dx[3, n]*pitch_correct_z(u1ez, theta_p) 
+                     + dx[4, n]*pitch_correct_z(u2fz, theta_p))
+        
+        # acceleration vectors for 1 blade
+        dduy[:, n] = (ddx[2, n]*pitch_correct_y(u1fy, theta_p) 
+                      + ddx[3, n]*pitch_correct_y(u1ey, theta_p) 
+                      + ddx[4, n]*pitch_correct_y(u2fy, theta_p))
+        dduz[:, n] = (ddx[2, n]*pitch_correct_z(u1fz, theta_p) 
+                      + ddx[3, n]*pitch_correct_z(u1ez, theta_p) 
+                      + ddx[4, n]*pitch_correct_z(u2fz, theta_p))
         
     #Bending moment for blade 1 for hvert tidskridt ved r=2.8
     M_blade1_flap[n] = np.trapz(pt_arr [:, 0, n]* (r - r[0]) - r_mass*dduy[:,n], (r-r[0])  )
@@ -890,97 +907,98 @@ if plot_theta_p:
     print('For V0=', V_0, 'theta_pitch=', np.rad2deg(theta_p_arr[-1]), 'deg')
 
 #%% Plot af deflection
-
-if plot_deflection:
-    plt.figure()
-    plt.grid()
-    plt.title('Deflection')
-    # plt.plot(time_arr[mask], uz[mask], label = 'uz')
-    plt.plot(time_arr, uz[-1, :], label = 'Flapwise tip deflection')
-    plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Deflection [m]')
-    # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
-    #plt.xlim(time_arr[0], time_arr[-1])
-    # plt.xlim(300,400)
-    # plt.ylim(0,4.5)
-    plt.legend()
-    plt.show()
+if use_dof11 or use_dof3:
+    if plot_deflection:
+        plt.figure()
+        plt.grid()
+        plt.title('Deflection')
+        # plt.plot(time_arr[mask], uz[mask], label = 'uz')
+        plt.plot(time_arr, uz[-1, :], label = 'Flapwise tip deflection')
+        plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Deflection [m]')
+        # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+        #plt.xlim(time_arr[0], time_arr[-1])
+        # plt.xlim(300,400)
+        # plt.ylim(-20,20)
+        plt.legend()
+        plt.show()
     
-    # PSD plot for deflection
-    # Need to discard the first few seconds to avoid the transcient part which
-    # has a hight impact on the psd. Seconds to discard:
-    sec_to_dis = 300
-    # observations to discard
-    obs_to_dis = int(sec_to_dis/delta_t)
+    if plot_bending_moment:
+        # PSD plot for deflection
+        # Need to discard the first few seconds to avoid the transcient part which
+        # has a hight impact on the psd. Seconds to discard:
+        sec_to_dis = 300
+        # observations to discard
+        obs_to_dis = int(sec_to_dis/delta_t)
+        
+        # Frequency for psd
+        fs=1/(time_arr[1]-time_arr[0])
+        
+        #Compute and plot the power spectral density. 
+        uz_freq, uz_psd = signal.welch(uz[-1, obs_to_dis:], fs, nperseg=1024)
+        uy_freq, uy_psd = signal.welch(uy[-1, obs_to_dis:], fs, nperseg=1024)
+        
+        fig,ax = plt.subplots(1,1)
+        
+        plt.plot(uy_freq*2*np.pi/omega, uy_psd, color='darkorange',label='Edgewise tip deflection')
+        plt.plot(uz_freq*2*np.pi/omega, uz_psd, label='Flapwise tip deflection')
+        # plt.plot(uz_freq, uz_psd, label='Flapwise tip deflection')
+        # plt.plot(uy_freq, uy_psd, label='Edgewise tip deflection')
+        ax.set( xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(m)^{2} / Hz$]')
+        # Sætter y lim, så den er lidt højere end peaket
+        # ylim_filter = (uz_freq*2*np.pi/omega) > 1
+        # ax.set_ylim(0,uz_psd[ylim_filter].max()*1.1)
+        ax.set_title('Power spectral density of deflection')
+        ax.grid()
+        # plt.xlim(0,50)
+        plt.legend()
+        plt.show()
     
-    # Frequency for psd
-    fs=1/(time_arr[1]-time_arr[0])
+        #Plot of Bending moment at r = 2.8m
+        plt.figure()
+        plt.grid()
+        plt.title('Bending moment at root')
+        plt.plot(time_arr, M_blade1_flap*10**(-6), label = 'Flapwise bending moment at root')
+        # plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Bending moment $[MN\cdot m]$')
+        # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+        #plt.xlim(time_arr[0], time_arr[-1])
+        # plt.xlim(300, 400)
+        # plt.ylim(1.23,1.24)
+        plt.legend()
+        plt.show()
     
-    #Compute and plot the power spectral density. 
-    uz_freq, uz_psd = signal.welch(uz[-1, obs_to_dis:], fs, nperseg=1024)
-    uy_freq, uy_psd = signal.welch(uy[-1, obs_to_dis:], fs, nperseg=1024)
+        #Plot of Bending moment at r = 2.8m
+        plt.figure()
+        plt.grid()
+        plt.title('Bending moment at root')
+        plt.plot(time_arr, M_blade1_edge*10**(-6), color='darkorange',label = 'Edgewise bending moment at root')
+        # plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Bending moment $[MN\cdot m]$')
+        # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+        #plt.xlim(time_arr[0], time_arr[-1])
+        # plt.xlim(300, 400)
+        # plt.ylim(12.1,12.15)
+        plt.legend()
+        plt.show()
     
-    fig,ax = plt.subplots(1,1)
+        #Compute and plot the power spectral density. 
+        M_blade1_flap_freq, M_blade1_flap_psd = signal.welch(M_blade1_flap[obs_to_dis:], fs, nperseg=1024)
+        M_blade1_edge_freq, M_blade1_edge_psd = signal.welch(M_blade1_edge[obs_to_dis:], fs, nperseg=1024)
     
-    plt.plot(uy_freq*2*np.pi/omega, uy_psd, color='darkorange',label='Edgewise tip deflection')
-    plt.plot(uz_freq*2*np.pi/omega, uz_psd, label='Flapwise tip deflection')
-    # plt.plot(uz_freq, uz_psd, label='Flapwise tip deflection')
-    # plt.plot(uy_freq, uy_psd, label='Edgewise tip deflection')
-    ax.set( xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(m)^{2} / Hz$]')
-    # Sætter y lim, så den er lidt højere end peaket
-    # ylim_filter = (uz_freq*2*np.pi/omega) > 1
-    # ax.set_ylim(0,uz_psd[ylim_filter].max()*1.1)
-    ax.set_title('Power spectral density of deflection')
-    ax.grid()
-    plt.xlim(0,50)
-    plt.legend()
-    plt.show()
-
-    #Plot of Bending moment at r = 2.8m
-    plt.figure()
-    plt.grid()
-    plt.title('Bending moment at root')
-    plt.plot(time_arr, M_blade1_flap*10**(-6), label = 'Flapwise bending moment at root')
-    # plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Bending moment $[MN\cdot m]$')
-    # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
-    #plt.xlim(time_arr[0], time_arr[-1])
-    plt.xlim(300, 400)
-    plt.ylim(1.23,1.24)
-    plt.legend()
-    plt.show()
-
-    #Plot of Bending moment at r = 2.8m
-    plt.figure()
-    plt.grid()
-    plt.title('Bending moment at root')
-    plt.plot(time_arr, M_blade1_edge*10**(-6), color='darkorange',label = 'Edgewise bending moment at root')
-    # plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
-    plt.xlabel('Time [s]')
-    plt.ylabel('Bending moment $[MN\cdot m]$')
-    # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
-    #plt.xlim(time_arr[0], time_arr[-1])
-    plt.xlim(300, 400)
-    plt.ylim(12.1,12.15)
-    plt.legend()
-    plt.show()
-
-    #Compute and plot the power spectral density. 
-    M_blade1_flap_freq, M_blade1_flap_psd = signal.welch(M_blade1_flap[obs_to_dis:], fs, nperseg=1024)
-    M_blade1_edge_freq, M_blade1_edge_psd = signal.welch(M_blade1_edge[obs_to_dis:], fs, nperseg=1024)
-
-    fig,ax = plt.subplots(1,1)
-    
-    plt.plot(M_blade1_edge_freq*2*np.pi/omega, M_blade1_edge_psd*10**(-6), color='darkorange', label='Edgewise bending moment')    
-    plt.plot(M_blade1_flap_freq*2*np.pi/omega, M_blade1_flap_psd*10**(-6),label='Flapwise bending moment')
-    ax.set( xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(m)^{2} / Hz$]')
-    ax.set_title('Power spectral density of bending moment')
-    ax.grid()
-    plt.xlim(0,50)
-    plt.legend()
-    plt.show()
+        fig,ax = plt.subplots(1,1)
+        
+        plt.plot(M_blade1_edge_freq*2*np.pi/omega, M_blade1_edge_psd*10**(-6), color='darkorange', label='Edgewise bending moment')    
+        plt.plot(M_blade1_flap_freq*2*np.pi/omega, M_blade1_flap_psd*10**(-6),label='Flapwise bending moment')
+        ax.set( xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(m)^{2} / Hz$]')
+        ax.set_title('Power spectral density of bending moment')
+        ax.grid()
+        # plt.xlim(0,50)
+        plt.legend()
+        plt.show()
 
 
 
