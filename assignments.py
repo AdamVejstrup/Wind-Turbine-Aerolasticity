@@ -42,13 +42,13 @@ use_stall = True # Dynamic stall
 use_turbulence = False # Turbulent data
 use_pitch_controller = True # Pitch controller.
 use_tower_shadow = False #Tower shadow
-use_dof3 = True # Find deflections for 1 elastic blade (two other are stiff)
-use_dof11 = False
+use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
+use_dof11 = True
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
-delta_t=0.1 # s
+delta_t=0.02 # s
 # timerange=4096
-timerange=200*6
+timerange=4000
 
 #for the plots, plots from xlim_min and forward
 xlim_min = 30  #s
@@ -110,7 +110,7 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0 = 7 # mean windspeed at hub height m/s
+V_0 = 15 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H = 119  # Hub height m
@@ -517,6 +517,7 @@ for n in range(1,timerange):
             if use_dof11:
                 V_rel_y_arr[k, i, n] = V_rel_y_arr[k, i, n] - duy[k, n-1]
                 V_rel_z_arr[k, i, n] = V_rel_z_arr[k, i, n] - duz[k, n-1] - dx[0, n-1]
+                
 
             phi = np.arctan(V_rel_z_arr[k, i, n]/(-V_rel_y_arr[k, i, n]))
             
@@ -812,6 +813,7 @@ for n in range(1,timerange):
             duy[:, n] = (dx[2, n]*pitch_correct_y(u1fy, theta_p) 
                          + dx[3, n]*pitch_correct_y(u1ey, theta_p) 
                          + dx[4, n]*pitch_correct_y(u2fy, theta_p))
+            
             duz[:, n] = (dx[2, n]*pitch_correct_z(u1fz, theta_p) 
                          + dx[3, n]*pitch_correct_z(u1ez, theta_p) 
                          + dx[4, n]*pitch_correct_z(u2fz, theta_p))
@@ -820,6 +822,7 @@ for n in range(1,timerange):
             dduy[:, n] = (ddx[2, n]*pitch_correct_y(u1fy, theta_p) 
                           + ddx[3, n]*pitch_correct_y(u1ey, theta_p) 
                           + ddx[4, n]*pitch_correct_y(u2fy, theta_p))
+            
             dduz[:, n] = (ddx[2, n]*pitch_correct_z(u1fz, theta_p) 
                           + ddx[3, n]*pitch_correct_z(u1ez, theta_p) 
                           + ddx[4, n]*pitch_correct_z(u2fz, theta_p))
@@ -873,12 +876,16 @@ for n in range(1,timerange):
         elif (theta_p_arr[n] < theta_p_min_ang):
             theta_p_arr[n] = theta_p_min_ang
             
-        if not use_dof11:
-            omega_arr[n] = omega_arr[n-1] + ((M_r - M_g)/ I_rotor) * delta_t
-    
+        # if not use_dof11:
+        #     omega_arr[n] = omega_arr[n-1] + ((M_r - M_g)/ I_rotor) * delta_t
+        
+        omega_arr[n] = dx[1, n]
+        
     #update omega
-    if use_dof11:
-        omega_arr[n] = omega_arr[n-1] + ddx[1, n]* delta_t
+    # if use_dof11:
+        # omega_arr[n] = omega_arr[n-1] + ddx[1, n]* delta_t
+        # omega_arr[n] = dx[1, n]
+        
 #%% PLot af M_g mod omega (generator torque mod roational speed)
 mask = x_mask(time_arr, xlim_min, xlim_max)
 
@@ -943,8 +950,8 @@ if use_dof11 or use_dof3:
         plt.ylabel('Deflection [m]')
         # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
         #plt.xlim(time_arr[0], time_arr[-1])
-        plt.xlim(110,120)
-        # plt.ylim(-20,20)
+        # plt.xlim(50,80)
+        plt.ylim(-5,5)
         plt.legend()
         plt.show()
     
