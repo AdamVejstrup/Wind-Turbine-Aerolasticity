@@ -42,8 +42,8 @@ use_stall = True # Dynamic stall
 use_turbulence = False # Turbulent data
 use_pitch_controller = True # Pitch controller.
 use_tower_shadow = False #Tower shadow
-use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
-use_dof11 = True
+use_dof3 = True # Find deflections for 1 elastic blade (two other are stiff)
+use_dof11 = False
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.1 # s
@@ -57,7 +57,7 @@ xlim_max = 200 #s
 # xlim_max = time_arr[-1] #s
 
 if use_turbulence and timerange < 4000:
-    raise ValueError('Timerange < 4000 does not work for turbulent wind')
+    print('Timerange < 4000, change to make better PSD plot')
 
 
 # %% Choose plots
@@ -110,7 +110,7 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0 = 15 # mean windspeed at hub height m/s
+V_0 = 7 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H = 119  # Hub height m
@@ -772,30 +772,57 @@ for n in range(1,timerange):
         dx[:, n] = dx_up
         ddx[:, n] = ddx_up
         
-        # displacement vectors  for 1 blade
-        uy[:, n] = (x[2, n]*pitch_correct_y(u1fy, theta_p) 
-                    + x[3, n]*pitch_correct_y(u1ey, theta_p) 
-                    + x[4, n]*pitch_correct_y(u2fy, theta_p))
+        if use_dof3:
+            # displacement vectors  for 1 blade
+            uy[:, n] = (x[0, n]*pitch_correct_y(u1fy, theta_p) 
+                        + x[1, n]*pitch_correct_y(u1ey, theta_p) 
+                        + x[2, n]*pitch_correct_y(u2fy, theta_p))
+            
+            uz[:, n] = (x[0, n]*pitch_correct_z(u1fz, theta_p) 
+                        + x[1, n]*pitch_correct_z(u1ez, theta_p) 
+                        + x[2, n]*pitch_correct_z(u2fz, theta_p))
+            
+            # velocity vectors for 1 blade
+            duy[:, n] = (dx[0, n]*pitch_correct_y(u1fy, theta_p) 
+                         + dx[1, n]*pitch_correct_y(u1ey, theta_p) 
+                         + dx[2, n]*pitch_correct_y(u2fy, theta_p))
+            duz[:, n] = (dx[0, n]*pitch_correct_z(u1fz, theta_p) 
+                         + dx[1, n]*pitch_correct_z(u1ez, theta_p) 
+                         + dx[2, n]*pitch_correct_z(u2fz, theta_p))
+            
+            # acceleration vectors for 1 blade
+            dduy[:, n] = (ddx[0, n]*pitch_correct_y(u1fy, theta_p) 
+                          + ddx[1, n]*pitch_correct_y(u1ey, theta_p) 
+                          + ddx[2, n]*pitch_correct_y(u2fy, theta_p))
+            dduz[:, n] = (ddx[0, n]*pitch_correct_z(u1fz, theta_p) 
+                          + ddx[1, n]*pitch_correct_z(u1ez, theta_p) 
+                          + ddx[2, n]*pitch_correct_z(u2fz, theta_p))
         
-        uz[:, n] = (x[2, n]*pitch_correct_z(u1fz, theta_p) 
-                    + x[3, n]*pitch_correct_z(u1ez, theta_p) 
-                    + x[4, n]*pitch_correct_z(u2fz, theta_p))
-        
-        # velocity vectors for 1 blade
-        duy[:, n] = (dx[2, n]*pitch_correct_y(u1fy, theta_p) 
-                     + dx[3, n]*pitch_correct_y(u1ey, theta_p) 
-                     + dx[4, n]*pitch_correct_y(u2fy, theta_p))
-        duz[:, n] = (dx[2, n]*pitch_correct_z(u1fz, theta_p) 
-                     + dx[3, n]*pitch_correct_z(u1ez, theta_p) 
-                     + dx[4, n]*pitch_correct_z(u2fz, theta_p))
-        
-        # acceleration vectors for 1 blade
-        dduy[:, n] = (ddx[2, n]*pitch_correct_y(u1fy, theta_p) 
-                      + ddx[3, n]*pitch_correct_y(u1ey, theta_p) 
-                      + ddx[4, n]*pitch_correct_y(u2fy, theta_p))
-        dduz[:, n] = (ddx[2, n]*pitch_correct_z(u1fz, theta_p) 
-                      + ddx[3, n]*pitch_correct_z(u1ez, theta_p) 
-                      + ddx[4, n]*pitch_correct_z(u2fz, theta_p))
+        if use_dof11:
+            # displacement vectors  for 1 blade
+            uy[:, n] = (x[2, n]*pitch_correct_y(u1fy, theta_p) 
+                        + x[3, n]*pitch_correct_y(u1ey, theta_p) 
+                        + x[4, n]*pitch_correct_y(u2fy, theta_p))
+            
+            uz[:, n] = (x[2, n]*pitch_correct_z(u1fz, theta_p) 
+                        + x[3, n]*pitch_correct_z(u1ez, theta_p) 
+                        + x[4, n]*pitch_correct_z(u2fz, theta_p))
+            
+            # velocity vectors for 1 blade
+            duy[:, n] = (dx[2, n]*pitch_correct_y(u1fy, theta_p) 
+                         + dx[3, n]*pitch_correct_y(u1ey, theta_p) 
+                         + dx[4, n]*pitch_correct_y(u2fy, theta_p))
+            duz[:, n] = (dx[2, n]*pitch_correct_z(u1fz, theta_p) 
+                         + dx[3, n]*pitch_correct_z(u1ez, theta_p) 
+                         + dx[4, n]*pitch_correct_z(u2fz, theta_p))
+            
+            # acceleration vectors for 1 blade
+            dduy[:, n] = (ddx[2, n]*pitch_correct_y(u1fy, theta_p) 
+                          + ddx[3, n]*pitch_correct_y(u1ey, theta_p) 
+                          + ddx[4, n]*pitch_correct_y(u2fy, theta_p))
+            dduz[:, n] = (ddx[2, n]*pitch_correct_z(u1fz, theta_p) 
+                          + ddx[3, n]*pitch_correct_z(u1ez, theta_p) 
+                          + ddx[4, n]*pitch_correct_z(u2fz, theta_p))
         
     #Bending moment for blade 1 for hvert tidskridt ved r=2.8
     M_blade1_flap[n] = np.trapz(pt_arr [:, 0, n]* (r - r[0]) - r_mass*dduy[:,n], (r-r[0])  )
@@ -846,15 +873,12 @@ for n in range(1,timerange):
         elif (theta_p_arr[n] < theta_p_min_ang):
             theta_p_arr[n] = theta_p_min_ang
             
-        #update omega
-        if use_dof11:
-            omega_arr[n] = dx[1, n]
-            
-        else:     
+        if not use_dof11:
             omega_arr[n] = omega_arr[n-1] + ((M_r - M_g)/ I_rotor) * delta_t
     
-    
-
+    #update omega
+    if use_dof11:
+        omega_arr[n] = omega_arr[n-1] + ddx[1, n]* delta_t
 #%% PLot af M_g mod omega (generator torque mod roational speed)
 mask = x_mask(time_arr, xlim_min, xlim_max)
 
@@ -911,7 +935,7 @@ if use_dof11 or use_dof3:
     if plot_deflection:
         plt.figure()
         plt.grid()
-        plt.title('Deflection')
+        plt.title('Deflection, incoming wind speed: ' + str(V_0))
         # plt.plot(time_arr[mask], uz[mask], label = 'uz')
         plt.plot(time_arr, uz[-1, :], label = 'Flapwise tip deflection')
         plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
@@ -919,7 +943,7 @@ if use_dof11 or use_dof3:
         plt.ylabel('Deflection [m]')
         # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
         #plt.xlim(time_arr[0], time_arr[-1])
-        # plt.xlim(300,400)
+        plt.xlim(110,120)
         # plt.ylim(-20,20)
         plt.legend()
         plt.show()
