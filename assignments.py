@@ -880,10 +880,11 @@ if plot_deflection:
     
     plt.plot(M_blade1_edge_freq*2*np.pi/omega, M_blade1_edge_psd*10**(-6), color='darkorange', label='Edgewise bending moment')    
     plt.plot(M_blade1_flap_freq*2*np.pi/omega, M_blade1_flap_psd*10**(-6),label='Flapwise bending moment')
-    ax.set( xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(m)^{2} / Hz$]')
+    ax.set( xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(MN\cdot m)^2 / Hz$]')
     ax.set_title('Power spectral density of bending moment')
     ax.grid()
     plt.xlim(0,50)
+    plt.ylim(0,2350)
     plt.legend()
     plt.show()
 
