@@ -16,7 +16,7 @@ from assignment_functions import (x_mask, make_gen_char,
                                   pitch_correct_z,
                                   pitch_correct_y,
                                   solve_eig_prob)
-import array_to_latex as a2l
+# import array_to_latex as a2l
 
 # Giver figurer i bedre kvalitet når de vises i Spyder og når de gemmes (kan evt. sættes op til 500)
 plt.rcParams['figure.dpi'] = 300
@@ -382,7 +382,7 @@ if use_dof11:
     
     eig_f = eig_omega / (2*np.pi)
         
-a2l.to_ltx(mode_shapes_eig, frmt = '{:2.2f}', print_out=True)
+# a2l.to_ltx(mode_shapes_eig, frmt = '{:2.2f}', print_out=True)
 #%% Array initializations
 
 # Time array: 1D array (time)
