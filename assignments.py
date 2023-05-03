@@ -38,13 +38,13 @@ else:
 # if use_pitch = False then the pitch is always 0 (except if pitch controller is used)
 use_pitch = False
 
-use_dwf = False # Dynamic wake filter
-use_stall = False # Dynamic stall
-use_turbulence = False # Turbulent data
-use_pitch_controller = False # Pitch controller.
-use_tower_shadow = True #Tower shadow
+use_dwf = True # Dynamic wake filter
+use_stall = True # Dynamic stall
+use_turbulence = True # Turbulent data
+use_pitch_controller = True # Pitch controller.
+use_tower_shadow = False #Tower shadow
 use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
-use_dof11 = False
+use_dof11 = True
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.05 # s
@@ -69,7 +69,7 @@ plot_gen_char = False # Generator characteristic
 plot_omega = False # Omega against time
 plot_hubwind = False #Wind at hub height
 plot_theta_p = False # Pitch against time
-plot_position_sys1 = True # (y, x)-coordinates in system 1 of given blade element
+plot_position_sys1 = False # (y, x)-coordinates in system 1 of given blade element
 plot_thrust_power = False # Thrust and power
 plot_induced_wind = False # Induced wind y and z
 plot_load_distribution = False # Load distribution and dtu 9 m/s load distribution
@@ -376,7 +376,7 @@ if use_dof11:
     C[10, 10] = C[4, 4]
     
     GF = np.zeros(len(M))
-
+    
     eig_omega, mode_shapes_eig = solve_eig_prob(K, M)
     
     eig_f = eig_omega / (2*np.pi)
@@ -1057,8 +1057,8 @@ if use_dof11 or use_dof3:
 
         plt.plot(uy_freq, uy_psd, color='darkorange',label='Edgewise tip deflection')
         plt.plot(uz_freq, uz_psd, label='Flapwise tip deflection')
-        plt.axvline(omega1e / (2 * np.pi), label = 'f 1st edge', color='black', linestyle='--')
-        plt.axvline(eig_f[0], label = 'f drivetrain', color='red', linestyle='--')
+        plt.axvline(omega1e / (2 * np.pi), label = '1st edge', color='black', linestyle='--')
+        plt.axvline(eig_f[0], label = 'drivetrain', color='red', linestyle='--')
         # plt.plot(uz_freq, uz_psd, label='Flapwise tip deflection')
         # plt.plot(uy_freq, uy_psd, label='Edgewise tip deflection')
         ax.set(xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(m)^{2} / Hz$]')
@@ -1068,20 +1068,19 @@ if use_dof11 or use_dof3:
         # ylim_filter = (uz_freq*2*np.pi/omega) > 1
         # ax.set_ylim(0,uz_psd[ylim_filter].max()*1.1)
         ax.set_title('Power spectral density of deflection')
+        ax.set_xlim(0, 4)
+        ax.set_ylim(bottom=10**(-7))
         ax.set_yscale('log')
         ax.grid()
 
         plt.legend()
         plt.show()
-        
-        plt.figure()
-        plt.plot()
     
         #Plot of Bending moment at r = 2.8m
         plt.figure()
         plt.grid()
         plt.title('Bending moment, incoming wind speed: '  + str(V_0) + 'm/s')
-        plt.plot(time_arr, M_blade1_flap*10**(-6), label = 'Flapwise bending moment at root'
+        plt.plot(time_arr, M_blade1_flap*10**(-6), label = 'Flapwise bending moment at root')
         # plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
         plt.xlabel('Time [s]')
         plt.ylabel('Bending moment $[MN\cdot m]$')
@@ -1379,6 +1378,54 @@ plt.legend()
 plt.show()
 """
 
+plt.figure()
+plt.grid()
+plt.title('Deflection, incoming wind speed: ' + str(V_0) + ' m/s')
+plt.plot(time_arr, x[0, :], label = 'Tower deflection')
+plt.xlabel('Time [s]')
+plt.ylabel('Deflection [m]')
+plt.xlim(150,409)
+plt.ylim(0, 0.6)
+plt.legend()
+plt.show()
+
+sec_to_dis = 150
+# observations to discard
+obs_to_dis = int(sec_to_dis/delta_t)
+
+# Frequency for psd
+fs=1/(time_arr[1]-time_arr[0])
+
+# Tower deflection psd
+td_freq, td_psd = signal.welch(x[0, obs_to_dis:], fs, nperseg=1024)
+
+fig,ax = plt.subplots(1,1)
+
+# plt.plot(uy_freq*2*np.pi/omega, uy_psd, color='darkorange',label='Edgewise tip deflection')
+# plt.plot(uz_freq*2*np.pi/omega, uz_psd, label='Flapwise tip deflection')
+
+plt.plot(td_freq, td_psd,label='Tower deflection')
+plt.axvline(eig_f[-2], label='Tower frequency', color='black', linestyle='--')
+# plt.axvline(omega1e / (2 * np.pi), label = '1st edge', color='black', linestyle='--')
+# plt.axvline(eig_f[0], label = 'drivetrain', color='red', linestyle='--')
+# plt.plot(uz_freq, uz_psd, label='Flapwise tip deflection')
+# plt.plot(uy_freq, uy_psd, label='Edgewise tip deflection')
+ax.set(xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(m)^{2} / Hz$]')
+ax.set(xlabel = 'f [Hz]', ylabel = 'PSD [$(m)^{2} / Hz$]')
+
+# Sætter y lim, så den er lidt højere end peaket
+# ylim_filter = (uz_freq*2*np.pi/omega) > 1
+# ax.set_ylim(0,uz_psd[ylim_filter].max()*1.1)
+ax.set_title('Power spectral density of deflection')
+ax.set_xlim(0, 1)
+ax.set_ylim(bottom=10**(-7))
+ax.set_yscale('log')
+ax.grid()
+
+plt.legend()
+plt.show()
+
+
 
 # from scipy.linalg import eig
 
@@ -1405,4 +1452,6 @@ plt.show()
 # mode_shapes_eig = mode_shapes_eig[:, [sort_idx[::-1]]]
 
 
+temp_eig_omega, temp_mode_shapes_eig = solve_eig_prob(K, M)
 
+temp_eig_f = temp_eig_omega/(2*np.pi)
