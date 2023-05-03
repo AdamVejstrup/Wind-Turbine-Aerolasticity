@@ -26,7 +26,7 @@ plt.rcParams.update({'font.size':12})
 
 # if use_wind_shear = False then wind_shear = 0
 # if use_wind_shear = True then wind_shear = 0.2
-use_wind_shear = True # Wind sheer
+use_wind_shear = False # Wind sheer
 
 if use_wind_shear:
     wind_shear = 0.2
@@ -980,24 +980,27 @@ if use_dof11 or use_dof3:
     if plot_deflection:
         plt.figure()
         plt.grid()
-        plt.title('Deflection, incoming wind speed: ' + str(V_0))
-        # plt.plot(time_arr[mask], uz[mask], label = 'uz')
-        plt.plot(time_arr, uz[-1, 0, :], label = 'Flapwise tip deflection')
-        plt.plot(time_arr, uy[-1, 0, :], label = 'Edgewise tip deflection')
+        plt.title('Deflection, incoming wind speed: ' + str(V_0) + 'm/s')
+        if use_dof3:
+            plt.plot(time_arr, uz[-1, :], label = 'Flapwise tip deflection')
+            plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
+        else:
+            plt.plot(time_arr, uz[-1, 0, :], label = 'Flapwise tip deflection')
+            plt.plot(time_arr, uy[-1, 0, :], label = 'Edgewise tip deflection')
         plt.xlabel('Time [s]')
         plt.ylabel('Deflection [m]')
         # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
         #plt.xlim(time_arr[0], time_arr[-1])
-        # plt.xlim(50,80)
-        # plt.ylim(-5,5)
+        plt.xlim(100,200)
+        plt.ylim(0,6)
         plt.legend()
         plt.show()
     
-    if plot_bending_moment:
+    if use_dof3:
         # PSD plot for deflection
         # Need to discard the first few seconds to avoid the transcient part which
         # has a hight impact on the psd. Seconds to discard:
-        sec_to_dis = 300
+        sec_to_dis = 100
         # observations to discard
         obs_to_dis = int(sec_to_dis/delta_t)
         
@@ -1012,30 +1015,25 @@ if use_dof11 or use_dof3:
         
         plt.plot(uy_freq*2*np.pi/omega, uy_psd, color='darkorange',label='Edgewise tip deflection')
         plt.plot(uz_freq*2*np.pi/omega, uz_psd, label='Flapwise tip deflection')
-        # plt.plot(uz_freq, uz_psd, label='Flapwise tip deflection')
-        # plt.plot(uy_freq, uy_psd, label='Edgewise tip deflection')
         ax.set( xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(m)^{2} / Hz$]')
         # Sætter y lim, så den er lidt højere end peaket
-        # ylim_filter = (uz_freq*2*np.pi/omega) > 1
-        # ax.set_ylim(0,uz_psd[ylim_filter].max()*1.1)
         ax.set_title('Power spectral density of deflection')
         ax.grid()
-        # plt.xlim(0,50)
+        plt.xlim(8,10)
         plt.legend()
         plt.show()
     
+    
+    if plot_bending_moment:
         #Plot of Bending moment at r = 2.8m
         plt.figure()
         plt.grid()
         plt.title('Bending moment at root')
         plt.plot(time_arr, M_blade1_flap*10**(-6), label = 'Flapwise bending moment at root')
-        # plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
         plt.xlabel('Time [s]')
         plt.ylabel('Bending moment $[MN\cdot m]$')
-        # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
-        #plt.xlim(time_arr[0], time_arr[-1])
-        # plt.xlim(300, 400)
-        # plt.ylim(1.23,1.24)
+        plt.xlim(100, 200)
+        plt.ylim(1,2)
         plt.legend()
         plt.show()
     
@@ -1044,13 +1042,10 @@ if use_dof11 or use_dof3:
         plt.grid()
         plt.title('Bending moment at root')
         plt.plot(time_arr, M_blade1_edge*10**(-6), color='darkorange',label = 'Edgewise bending moment at root')
-        # plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
         plt.xlabel('Time [s]')
         plt.ylabel('Bending moment $[MN\cdot m]$')
-        # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
-        #plt.xlim(time_arr[0], time_arr[-1])
-        # plt.xlim(300, 400)
-        # plt.ylim(12.1,12.15)
+        plt.xlim(100, 200)
+        plt.ylim(10,15)
         plt.legend()
         plt.show()
     
@@ -1065,7 +1060,7 @@ if use_dof11 or use_dof3:
         ax.set( xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(m)^{2} / Hz$]')
         ax.set_title('Power spectral density of bending moment')
         ax.grid()
-        # plt.xlim(0,50)
+        plt.xlim(0,50)
         plt.legend()
         plt.show()
 
