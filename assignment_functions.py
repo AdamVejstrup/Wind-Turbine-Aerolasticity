@@ -1,7 +1,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-
+from scipy.linalg import eig
 
 def x_mask(x, start=None, end=None):
     
@@ -155,7 +155,33 @@ def pitch_correct_z(u, pitch):
 # Pitch correct y
 def pitch_correct_y(u, pitch):
     return u * np.sin(pitch) + u * np.cos(pitch)
+
+
+def solve_eig_prob(K, M):
     
+    # Solving eigenvalue problem
+    eig_omega_squared, eigen_matrix = eig(K, M)
+    
+    # Square root and abs to get rid of complex eigenvaleus
+    # and get non-squared values
+    eig_omega = np.sqrt(np.abs(eig_omega_squared))
+    
+    mode_shapes_eig = np.zeros(M.shape)
+    
+    for idx in range(len(M)):
+        mode_shapes_eig_idx = np.unravel_index(np.argmax(np.abs(eigen_matrix[:, idx])),
+                                           eigen_matrix.shape)
+        
+        mode_shapes_eig[:, idx] = (eigen_matrix[:, idx] /
+                               eigen_matrix[mode_shapes_eig_idx[1], idx])
+    
+    sort_idx = eig_omega.argsort()
+    
+    eig_omega = eig_omega[sort_idx[::-1]]
+    
+    mode_shapes_eig = mode_shapes_eig[:, sort_idx[::-1]]
+    
+    return eig_omega, mode_shapes_eig
 
 
 
