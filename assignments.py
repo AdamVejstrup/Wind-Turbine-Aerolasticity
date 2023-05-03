@@ -36,19 +36,19 @@ else:
 # if use_pitch = True then pitch is changed in time interval (see assignment1 description)
 # if use_pitch = False then the pitch is always 0 (except if pitch controller is used)
 use_pitch = False
-
-use_dwf = True # Dynamic wake filter
-use_stall = True # Dynamic stall
+use_dwf = False # Dynamic wake filter
+use_stall = False # Dynamic stall
 use_turbulence = False # Turbulent data
-use_pitch_controller = True # Pitch controller.
-use_tower_shadow = False #Tower shadow
-use_dof3 = True # Find deflections for 1 elastic blade (two other are stiff)
+use_pitch_controller = False # Pitch controller.
+use_tower_shadow = True #Tower shadow
+use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
 use_dof11 = False
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.05 # s
-timerange=4096
-# timerange=200*9
+delta_t=0.1 #s
+#timerange=4096
+timerange=200*9
 
 #for the plots, plots from xlim_min and forward
 xlim_min = 30  #s
@@ -66,7 +66,7 @@ plot_gen_char = False # Generator characteristic
 plot_omega = False # Omega against time
 plot_hubwind = False #Wind at hub height
 plot_theta_p = False # Pitch against time
-plot_position_sys1 = False # (y, x)-coordinates in system 1 of given blade element
+plot_position_sys1 = True # (y, x)-coordinates in system 1 of given blade element
 plot_thrust_power = False # Thrust and power
 plot_induced_wind = False # Induced wind y and z
 plot_load_distribution = False # Load distribution and dtu 9 m/s load distribution
@@ -74,7 +74,7 @@ plot_thrust_per_blade = False # Thrust for each blade and total thrust
 plot_pn_specific_element = False # Normal loading for specific blade and specific blade element
 plot_thrust_psd = False # PSD of total thrust
 plot_turbulence_contour = False # Contour plot of turbulence
-plot_deflection = True # Plot of deflections 
+plot_deflection = False # Plot of deflections 
 plot_bending_moment = False # Plot of bending moment, time and PSD
 
 # %% Force coeff files
@@ -274,6 +274,8 @@ if use_dof3:
     C[1, 1] = omega1e * M[2, 1] * delta_damp/np.pi
     C[2, 2] = omega2f * M[2, 2] * delta_damp/np.pi
     
+    GF = np.zeros(len(M))
+    
     
 if use_dof11:
     M = np.zeros([11, 11])
@@ -367,8 +369,7 @@ if use_dof11:
     C[9, 9] = C[3, 3]
     C[10, 10] = C[4, 4]
     
-        
-GF = np.zeros(len(M))
+    GF = np.zeros(len(M))
 
 #%% Array initializations
 
@@ -423,9 +424,10 @@ theta_p_I_arr = np.zeros(timerange)
 theta_blade1=[omega*delta_t,omega*delta_t*2]
 
 #Position, velocity and acceleration
-x = np.zeros([len(M), timerange])
-dx = np.zeros(x.shape)
-ddx = np.zeros(x.shape)
+if use_dof11 or use_dof3:
+    x = np.zeros([len(M), timerange])
+    dx = np.zeros(x.shape)
+    ddx = np.zeros(x.shape)
 
 if use_dof3:
     uy = np.zeros([len(r), timerange])
@@ -866,11 +868,11 @@ for n in range(1,timerange):
         
     #Bending moment for blade 1 for hvert tidskridt ved r=2.8
     if use_dof3:
-        M_blade1_flap[n] = np.trapz(pt_arr [:, 0, n]* (r - r[0]) - r_mass*dduy[:, n], (r-r[0])  )
-        M_blade1_edge[n] = np.trapz(pn_arr [:, 0, n]* (r - r[0]) - r_mass*dduz[:, n], (r-r[0])  )
+        M_blade1_edge[n] = np.trapz(pt_arr [:, 0, n]* (r - r[0]) - r_mass*dduy[:, n], (r-r[0])  )
+        M_blade1_flap[n] = np.trapz(pn_arr [:, 0, n]* (r - r[0]) - r_mass*dduz[:, n], (r-r[0])  )
     if use_dof11:
-        M_blade1_flap[n] = np.trapz(pt_arr [:, 0, n]* (r - r[0]) - r_mass*dduy[:, 0, n], (r-r[0])  )
-        M_blade1_edge[n] = np.trapz(pn_arr [:, 0, n]* (r - r[0]) - r_mass*dduz[:, 0, n], (r-r[0])  )
+        M_blade1_edge[n] = np.trapz(pt_arr [:, 0, n]* (r - r[0]) - r_mass*dduy[:, 0, n], (r-r[0])  )
+        M_blade1_flap[n] = np.trapz(pn_arr [:, 0, n]* (r - r[0]) - r_mass*dduz[:, 0, n], (r-r[0])  )
 
 
     #%% update omega and pitch til pitch controller
@@ -1019,7 +1021,7 @@ if use_dof11 or use_dof3:
         # Sætter y lim, så den er lidt højere end peaket
         ax.set_title('Power spectral density of deflection')
         ax.grid()
-        plt.xlim(8,10)
+        plt.xlim(0,10)
         plt.legend()
         plt.show()
     
@@ -1028,27 +1030,17 @@ if use_dof11 or use_dof3:
         #Plot of Bending moment at r = 2.8m
         plt.figure()
         plt.grid()
-        plt.title('Bending moment at root')
+        plt.title('Bending moment, incoming wind speed: '  + str(V_0) + 'm/s')
         plt.plot(time_arr, M_blade1_flap*10**(-6), label = 'Flapwise bending moment at root')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Bending moment $[MN\cdot m]$')
-        plt.xlim(100, 200)
-        plt.ylim(1,2)
-        plt.legend()
-        plt.show()
-    
-        #Plot of Bending moment at r = 2.8m
-        plt.figure()
-        plt.grid()
-        plt.title('Bending moment at root')
         plt.plot(time_arr, M_blade1_edge*10**(-6), color='darkorange',label = 'Edgewise bending moment at root')
         plt.xlabel('Time [s]')
         plt.ylabel('Bending moment $[MN\cdot m]$')
         plt.xlim(100, 200)
-        plt.ylim(10,15)
+        plt.ylim(0,15)
         plt.legend()
         plt.show()
-    
+
+
         #Compute and plot the power spectral density. 
         M_blade1_flap_freq, M_blade1_flap_psd = signal.welch(M_blade1_flap[obs_to_dis:], fs, nperseg=1024)
         M_blade1_edge_freq, M_blade1_edge_psd = signal.welch(M_blade1_edge[obs_to_dis:], fs, nperseg=1024)
@@ -1057,21 +1049,12 @@ if use_dof11 or use_dof3:
         
         plt.plot(M_blade1_edge_freq*2*np.pi/omega, M_blade1_edge_psd*10**(-6), color='darkorange', label='Edgewise bending moment')    
         plt.plot(M_blade1_flap_freq*2*np.pi/omega, M_blade1_flap_psd*10**(-6),label='Flapwise bending moment')
-        ax.set( xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(m)^{2} / Hz$]')
+        ax.set( xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(MN\cdot m)^{2} / Hz$]')
         ax.set_title('Power spectral density of bending moment')
         ax.grid()
         plt.xlim(0,50)
         plt.legend()
         plt.show()
-
-
-
-
-
-
-
-
-
 
 
 #%% Plot x og y position sammmen for en given airfoil
