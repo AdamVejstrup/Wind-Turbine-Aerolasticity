@@ -42,8 +42,8 @@ use_stall = True # Dynamic stall
 use_turbulence = False # Turbulent data
 use_pitch_controller = True # Pitch controller.
 use_tower_shadow = False #Tower shadow
-use_dof3 = True # Find deflections for 1 elastic blade (two other are stiff)
-use_dof11 = False
+use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
+use_dof11 = True
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.05 # s
@@ -661,182 +661,190 @@ for n in range(1,timerange):
             GF[1] = np.trapz(pt_arr[:, 0, n]*u1ey,r) + np.trapz(pn_arr[:, 0, n]*u1ez,r)
             GF[2] = np.trapz(pt_arr[:, 0, n]*u2fy,r) + np.trapz(pn_arr[:, 0, n]*u2fz,r)
         
-        
-        if use_dof11:
-                
-            #GF for 11 dof system
-            GF[0] = T
-            GF[1] = M_r - M_g
-            GF[2] = (np.trapz(pt_arr[:, 0, n]*pitch_correct_y(u1fy, theta_p),r) 
-                     + np.trapz(pn_arr[:, 0, n]*pitch_correct_z(u1fz, theta_p),r) )
-            
-            GF[3] = (np.trapz(pt_arr[:, 0, n]*pitch_correct_y(u1ey, theta_p),r) 
-                     + np.trapz(pn_arr[:, 0, n]*pitch_correct_z(u1ez, theta_p),r))
-            
-            GF[4] = (np.trapz(pt_arr[:, 0, n]*pitch_correct_y(u2fy, theta_p),r) 
-                     + np.trapz(pn_arr[:, 0, n]*pitch_correct_z(u2fz, theta_p),r))
-            GF[5] = GF[2]
-            GF[6] = GF[3]
-            GF[7] = GF[4]
-            GF[8] = GF[2]
-            GF[9] = GF[3]
-            GF[10] = GF[4]
-            
-    
-        ddx[:, 0] = np.linalg.inv(M) @ (GF - K @ x[:, 0] - C @ dx[:, 0])
-
-
-        # Step 2: Predictions of position, velocity and acceleration
-        x_up = x[:, n-1] + delta_t*dx[:, n-1] + 0.5* delta_t**2 *ddx[:, n-1]
-        dx_up = dx[:, n-1] + delta_t*ddx[:, n-1]
-        ddx_up = ddx[:, n-1]
-
-
-        # Step 3: Residual calculation
-        counter = 0
-        residual = np.ones(len(M))
-        
-        while np.max(np.abs(residual)) > eps and counter < 600: 
-                
+        for i in range(B):
             if use_dof11:
-                # update Mass matrix
-                M[2, 0] = np.trapz(r_mass * pitch_correct_z(u1fz, theta_p), r)
-                M[3, 0] = np.trapz(r_mass * pitch_correct_z(u1ez, theta_p), r)
-                M[4, 0] = np.trapz(r_mass * pitch_correct_z(u2fz, theta_p), r)
-                M[5, 0] = M[2, 0]
-                M[6, 0] = M[3, 0]
-                M[7, 0] = M[4, 0]
-                M[8, 0] = M[2, 0]
-                M[9, 0] = M[3, 0]
-                M[10, 0] = M[4, 0]
                 
-                M[2, 1] = np.trapz(r_mass * r * np.cos(theta_cone) 
-                                   * pitch_correct_y(u1fy, theta_p), r)
-                M[3, 1] = np.trapz(r_mass * r * np.cos(theta_cone) 
-                                   * pitch_correct_y(u1ey, theta_p), r)
-                M[4, 1] = np.trapz(r_mass * r * np.cos(theta_cone) 
-                                   * pitch_correct_y(u2fy, theta_p), r)
-                M[5, 1] = M[2, 1]
-                M[6, 1] = M[3, 1]
-                M[7, 1] = M[4, 1]
-                M[8, 1] = M[2, 1]
-                M[9, 1] = M[3, 1]
-                M[10, 1] = M[4, 1]
+                #GF for 11 dof system
+                GF[0] = T
+                GF[1] = M_r - M_g
+                GF[2] = (np.trapz(pt_arr[:, i, n]*pitch_correct_y(u1fy, theta_p),r) 
+                         + np.trapz(pn_arr[:, i, n]*pitch_correct_z(u1fz, theta_p),r) )
                 
-                M[0, 2] = M[2, 0]
-                M[1, 2] = M[2, 1]
-                M[2, 2] = np.trapz(r_mass*pitch_correct_y(u1fy, theta_p)**2 
-                                   + r_mass*pitch_correct_z(u1fz, theta_p)**2,r)
+                GF[3] = (np.trapz(pt_arr[:, i, n]*pitch_correct_y(u1ey, theta_p),r) 
+                         + np.trapz(pn_arr[:, i, n]*pitch_correct_z(u1ez, theta_p),r))
                 
-                M[0, 3] = M[3, 0]
-                M[1, 3] = M[3, 1]
-                M[3, 3] = np.trapz(r_mass*pitch_correct_y(u1ey, theta_p)**2 
-                                   + r_mass*pitch_correct_z(u1ez, theta_p)**2,r)
+                GF[4] = (np.trapz(pt_arr[:, i, n]*pitch_correct_y(u2fy, theta_p),r) 
+                         + np.trapz(pn_arr[:, i, n]*pitch_correct_z(u2fz, theta_p),r))
+                GF[5] = GF[2]
+                GF[6] = GF[3]
+                GF[7] = GF[4]
+                GF[8] = GF[2]
+                GF[9] = GF[3]
+                GF[10] = GF[4]
                 
-                M[0, 4] = M[4, 0]
-                M[1, 4] = M[4, 1]
-                M[4, 4] = np.trapz(r_mass*pitch_correct_y(u2fy, theta_p)**2 
-                                   + r_mass*pitch_correct_z(u2fz, theta_p)**2,r)
-                
-                M[0, 5] = M[5, 0]
-                M[1, 5] = M[5, 1]
-                M[5, 5] = M[2, 2]
-                
-                M[0, 6] = M[6, 0]
-                M[1, 6] = M[6, 1]
-                M[6, 6] = M[3, 3]
-                
-                M[0, 7] = M[7, 0]
-                M[1, 7] = M[7, 1]
-                M[7, 7] = M[4, 4]
-                
-                M[0, 8] = M[5, 0]
-                M[1, 8] = M[5, 1]
-                M[8, 8] = M[2, 2]
-                
-                M[0, 9] = M[6, 0]
-                M[1, 9] = M[6, 1]
-                M[9, 9] = M[3, 3]
+        
+            ddx[:, 0] = np.linalg.inv(M) @ (GF - K @ x[:, 0] - C @ dx[:, 0])
+    
+    
+            # Step 2: Predictions of position, velocity and acceleration
+            x_up = x[:, n-1] + delta_t*dx[:, n-1] + 0.5* delta_t**2 *ddx[:, n-1]
+            dx_up = dx[:, n-1] + delta_t*ddx[:, n-1]
+            ddx_up = ddx[:, n-1]
+    
+    
+            # Step 3: Residual calculation
+            counter = 0
+            residual = np.ones(len(M))
+            
+            while np.max(np.abs(residual)) > eps and counter < 600: 
                     
-                M[0, 10] = M[7, 0]
-                M[1, 10] = M[7, 1]
-                M[10, 10] = M[4, 4]
+                if use_dof11:
+                    # update Mass matrix
+                    M[2, 0] = np.trapz(r_mass * pitch_correct_z(u1fz, theta_p), r)
+                    M[3, 0] = np.trapz(r_mass * pitch_correct_z(u1ez, theta_p), r)
+                    M[4, 0] = np.trapz(r_mass * pitch_correct_z(u2fz, theta_p), r)
+                    M[5, 0] = M[2, 0]
+                    M[6, 0] = M[3, 0]
+                    M[7, 0] = M[4, 0]
+                    M[8, 0] = M[2, 0]
+                    M[9, 0] = M[3, 0]
+                    M[10, 0] = M[4, 0]
+                    
+                    M[2, 1] = np.trapz(r_mass * r * np.cos(theta_cone) 
+                                       * pitch_correct_y(u1fy, theta_p), r)
+                    M[3, 1] = np.trapz(r_mass * r * np.cos(theta_cone) 
+                                       * pitch_correct_y(u1ey, theta_p), r)
+                    M[4, 1] = np.trapz(r_mass * r * np.cos(theta_cone) 
+                                       * pitch_correct_y(u2fy, theta_p), r)
+                    M[5, 1] = M[2, 1]
+                    M[6, 1] = M[3, 1]
+                    M[7, 1] = M[4, 1]
+                    M[8, 1] = M[2, 1]
+                    M[9, 1] = M[3, 1]
+                    M[10, 1] = M[4, 1]
+                    
+                    M[0, 2] = M[2, 0]
+                    M[1, 2] = M[2, 1]
+                    M[2, 2] = np.trapz(r_mass*pitch_correct_y(u1fy, theta_p)**2 
+                                       + r_mass*pitch_correct_z(u1fz, theta_p)**2,r)
+                    
+                    M[0, 3] = M[3, 0]
+                    M[1, 3] = M[3, 1]
+                    M[3, 3] = np.trapz(r_mass*pitch_correct_y(u1ey, theta_p)**2 
+                                       + r_mass*pitch_correct_z(u1ez, theta_p)**2,r)
+                    
+                    M[0, 4] = M[4, 0]
+                    M[1, 4] = M[4, 1]
+                    M[4, 4] = np.trapz(r_mass*pitch_correct_y(u2fy, theta_p)**2 
+                                       + r_mass*pitch_correct_z(u2fz, theta_p)**2,r)
+                    
+                    M[0, 5] = M[5, 0]
+                    M[1, 5] = M[5, 1]
+                    M[5, 5] = M[2, 2]
+                    
+                    M[0, 6] = M[6, 0]
+                    M[1, 6] = M[6, 1]
+                    M[6, 6] = M[3, 3]
+                    
+                    M[0, 7] = M[7, 0]
+                    M[1, 7] = M[7, 1]
+                    M[7, 7] = M[4, 4]
+                    
+                    M[0, 8] = M[5, 0]
+                    M[1, 8] = M[5, 1]
+                    M[8, 8] = M[2, 2]
+                    
+                    M[0, 9] = M[6, 0]
+                    M[1, 9] = M[6, 1]
+                    M[9, 9] = M[3, 3]
+                        
+                    M[0, 10] = M[7, 0]
+                    M[1, 10] = M[7, 1]
+                    M[10, 10] = M[4, 4]
+                    
+                    #Stiffnes matrix
+                    K[2, 2] = omega1f**2 * M[2, 2]
+                    K[3, 3] = omega1e**2 * M[3, 3]
+                    K[4, 4] = omega2f**2 * M[4, 4]
+                    K[5, 5] = K[2, 2]
+                    K[6, 6] = K[3, 3]
+                    K[7, 7] = K[4, 4]
+                    K[8, 8] = K[2, 2]
+                    K[9, 9] = K[3, 3]
+                    K[10, 10] = K[4, 4]
+                    
+                    C[2, 2] = omega1f * M[2, 2] * delta_damp/np.pi
+                    C[3, 3] = omega1e * M[3, 3] * delta_damp/np.pi
+                    C[4, 4] = omega2f * M[4, 4] * delta_damp/np.pi
+                    C[5, 5] = C[2, 2]
+                    C[6, 6] = C[3, 3]
+                    C[7, 7] = C[4, 4]
+                    C[8, 8] = C[2, 2]
+                    C[9, 9] = C[3, 3]
+                    C[10, 10] = C[4, 4]
+            
                 
-                #Stiffnes matrix
-                K[2, 2] = omega1f**2 * M[2, 2]
-                K[3, 3] = omega1e**2 * M[3, 3]
-                K[4, 4] = omega2f**2 * M[4, 4]
-                K[5, 5] = K[2, 2]
-                K[6, 6] = K[3, 3]
-                K[7, 7] = K[4, 4]
-                K[8, 8] = K[2, 2]
-                K[9, 9] = K[3, 3]
-                K[10, 10] = K[4, 4]
+                #Calculate residual
+                residual = GF - M @ ddx_up - K @ x_up - C @ dx_up
                 
-                C[2, 2] = omega1f * M[2, 2] * delta_damp/np.pi
-                C[3, 3] = omega1e * M[3, 3] * delta_damp/np.pi
-                C[4, 4] = omega2f * M[4, 4] * delta_damp/np.pi
-                C[5, 5] = C[2, 2]
-                C[6, 6] = C[3, 3]
-                C[7, 7] = C[4, 4]
-                C[8, 8] = C[2, 2]
-                C[9, 9] = C[3, 3]
-                C[10, 10] = C[4, 4]
-        
+                # print(np.max(np.abs(residual)))
+                
+                K_star = K + (1/(beta_newmark * delta_t**2)) * M + gamma_newmark /(beta_newmark*delta_t) * C
+                
+                delta_x = np.linalg.inv(K_star) @ residual
+                
+                #Update dof
+                x_up = x_up + delta_x
+                dx_up = dx_up + gamma_newmark / (beta_newmark*delta_t) * delta_x
+                ddx_up = ddx_up + 1 / (beta_newmark*delta_t**2) * delta_x
+    
+                # Update counter
+                counter = counter + 1
+    
             
-            #Calculate residual
-            residual = GF - M @ ddx_up - K @ x_up - C @ dx_up
+            # Save updated dof
+            x[:, n] = x_up
+            dx[:, n] = dx_up
+            ddx[:, n] = ddx_up
             
-            # print(np.max(np.abs(residual)))
+            if use_dof3:
+                # displacement vectors  for 1 blade
+                uy[:, n] = (x[0, n]*pitch_correct_y(u1fy, theta_p) 
+                            + x[1, n]*pitch_correct_y(u1ey, theta_p) 
+                            + x[2, n]*pitch_correct_y(u2fy, theta_p))
+                
+                uz[:, n] = (x[0, n]*pitch_correct_z(u1fz, theta_p) 
+                            + x[1, n]*pitch_correct_z(u1ez, theta_p) 
+                            + x[2, n]*pitch_correct_z(u2fz, theta_p))
+                
+                # velocity vectors for 1 blade
+                duy[:, n] = (dx[0, n]*pitch_correct_y(u1fy, theta_p) 
+                             + dx[1, n]*pitch_correct_y(u1ey, theta_p) 
+                             + dx[2, n]*pitch_correct_y(u2fy, theta_p))
+                duz[:, n] = (dx[0, n]*pitch_correct_z(u1fz, theta_p) 
+                             + dx[1, n]*pitch_correct_z(u1ez, theta_p) 
+                             + dx[2, n]*pitch_correct_z(u2fz, theta_p))
+                
+                # acceleration vectors for 1 blade
+                dduy[:, n] = (ddx[0, n]*pitch_correct_y(u1fy, theta_p) 
+                              + ddx[1, n]*pitch_correct_y(u1ey, theta_p) 
+                              + ddx[2, n]*pitch_correct_y(u2fy, theta_p))
+                dduz[:, n] = (ddx[0, n]*pitch_correct_z(u1fz, theta_p) 
+                              + ddx[1, n]*pitch_correct_z(u1ez, theta_p) 
+                              + ddx[2, n]*pitch_correct_z(u2fz, theta_p))
             
-            K_star = K + (1/(beta_newmark * delta_t**2)) * M + gamma_newmark /(beta_newmark*delta_t) * C
-            
-            delta_x = np.linalg.inv(K_star) @ residual
-            
-            #Update dof
-            x_up = x_up + delta_x
-            dx_up = dx_up + gamma_newmark / (beta_newmark*delta_t) * delta_x
-            ddx_up = ddx_up + 1 / (beta_newmark*delta_t**2) * delta_x
-
-            # Update counter
-            counter = counter + 1
-
-        
-        # Save updated dof
-        x[:, n] = x_up
-        dx[:, n] = dx_up
-        ddx[:, n] = ddx_up
-        
-        if use_dof3:
-            # displacement vectors  for 1 blade
-            uy[:, n] = (x[0, n]*pitch_correct_y(u1fy, theta_p) 
-                        + x[1, n]*pitch_correct_y(u1ey, theta_p) 
-                        + x[2, n]*pitch_correct_y(u2fy, theta_p))
-            
-            uz[:, n] = (x[0, n]*pitch_correct_z(u1fz, theta_p) 
-                        + x[1, n]*pitch_correct_z(u1ez, theta_p) 
-                        + x[2, n]*pitch_correct_z(u2fz, theta_p))
-            
-            # velocity vectors for 1 blade
-            duy[:, n] = (dx[0, n]*pitch_correct_y(u1fy, theta_p) 
-                         + dx[1, n]*pitch_correct_y(u1ey, theta_p) 
-                         + dx[2, n]*pitch_correct_y(u2fy, theta_p))
-            duz[:, n] = (dx[0, n]*pitch_correct_z(u1fz, theta_p) 
-                         + dx[1, n]*pitch_correct_z(u1ez, theta_p) 
-                         + dx[2, n]*pitch_correct_z(u2fz, theta_p))
-            
-            # acceleration vectors for 1 blade
-            dduy[:, n] = (ddx[0, n]*pitch_correct_y(u1fy, theta_p) 
-                          + ddx[1, n]*pitch_correct_y(u1ey, theta_p) 
-                          + ddx[2, n]*pitch_correct_y(u2fy, theta_p))
-            dduz[:, n] = (ddx[0, n]*pitch_correct_z(u1fz, theta_p) 
-                          + ddx[1, n]*pitch_correct_z(u1ez, theta_p) 
-                          + ddx[2, n]*pitch_correct_z(u2fz, theta_p))
-        
-        if use_dof11:
-            # displacement vectors  for 1 blade
-            k_list = [2, 5, 8]
-            for i, k in enumerate(k_list):
+            if use_dof11:
+                # displacement vectors
+                
+                if i == 0:
+                    k = 2
+                    
+                elif i == 1:
+                    k = 5
+                    
+                elif i == 2:
+                    k = 8
+                
                 uy[:, i, n] = (x[k, n]*pitch_correct_y(u1fy, theta_p) 
                             + x[k+1, n]*pitch_correct_y(u1ey, theta_p) 
                             + x[k+2, n]*pitch_correct_y(u2fy, theta_p))
@@ -980,16 +988,16 @@ if use_dof11 or use_dof3:
     if plot_deflection:
         plt.figure()
         plt.grid()
-        plt.title('Deflection, incoming wind speed: ' + str(V_0))
+        plt.title('Deflection, incoming wind speed: ' + str(V_0)+ "m/s")
         # plt.plot(time_arr[mask], uz[mask], label = 'uz')
-        plt.plot(time_arr, uz[-1, 0, :], label = 'Flapwise tip deflection')
-        plt.plot(time_arr, uy[-1, 0, :], label = 'Edgewise tip deflection')
+        plt.plot(time_arr, uz[-1, 2, :], label = 'Flapwise tip deflection')
+        plt.plot(time_arr, uy[-1, 2, :], label = 'Edgewise tip deflection')
         plt.xlabel('Time [s]')
         plt.ylabel('Deflection [m]')
         # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
         #plt.xlim(time_arr[0], time_arr[-1])
-        # plt.xlim(50,80)
-        # plt.ylim(-5,5)
+        plt.xlim(150,200)
+        plt.ylim(0,6)
         plt.legend()
         plt.show()
     
@@ -1068,14 +1076,6 @@ if use_dof11 or use_dof3:
         # plt.xlim(0,50)
         plt.legend()
         plt.show()
-
-
-
-
-
-
-
-
 
 
 
