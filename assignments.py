@@ -44,7 +44,7 @@ use_dof3 = True # Find deflections for 1 elastic blade (two other are stiff)
 use_dof11 = False
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
-delta_t=0.1 # s
+delta_t=0.05 # s
 timerange=4096
 #timerange=200*3
 
@@ -107,7 +107,7 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0 = 7 # mean windspeed at hub height m/s
+V_0 = 15 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H = 119  # Hub height m
@@ -338,7 +338,14 @@ if use_dof11:
     K[9, 9] = K[3, 3]
     K[10, 10] = K[4, 4]
     
+
+    # Calculate M_g (generator moment)
+    if omega < omega_ref: 
+        M_g = K_const * omega**2
     
+    else:
+        M_g = 1.0545* 10**7
+
 
 #%% Array initializations
 
@@ -397,12 +404,13 @@ x = np.zeros([len(M), timerange])
 dx = np.zeros(x.shape)
 ddx = np.zeros(x.shape)
 
-uy = np.zeros([len(r), timerange])
-uz = np.zeros([len(r), timerange])
-duy = np.zeros([len(r), timerange])
-duz = np.zeros([len(r), timerange])
-dduy = np.zeros([len(r), timerange])
-dduz = np.zeros([len(r), timerange])
+
+uy = np.zeros([len(r),timerange])
+uz = np.zeros(uy.shape)
+duy = np.zeros(uy.shape)
+duz = np.zeros(uy.shape)
+dduy = np.zeros(uy.shape)
+dduz = np.zeros(uy.shape)
 
 M_blade1_flap = np.zeros(timerange)
 M_blade1_edge = np.zeros(timerange)
@@ -502,13 +510,13 @@ for n in range(1,timerange):
                 V_rel_z_arr[k, i, n] = V0z_arr[k, i, n] + Wz_arr[k, i, n-1]
                 
             if use_dof3:
-                if i == 0:
+                if i == 0: #kun for blade 1 (derfor i == 0)
                     V_rel_y_arr[k, i, n] = V_rel_y_arr[k, i, n] - duy[k, n-1]
                     V_rel_z_arr[k, i, n] = V_rel_z_arr[k, i, n] - duz[k, n-1]
             
             if use_dof11:
-                V_rel_y_arr[k, i, n] = V_rel_y_arr[k, i, n] - duy[k, n-1]
-                V_rel_z_arr[k, i, n] = V_rel_z_arr[k, i, n] - duz[k, n-1]
+                V_rel_z_arr[k, i, n] = V_rel_z_arr[k, i, n] - duz[k, n-1] - dx[0, n-1]
+                
 
             phi = np.arctan(V_rel_z_arr[k, i, n]/(-V_rel_y_arr[k, i, n]))
             
@@ -608,6 +616,7 @@ for n in range(1,timerange):
     
     #%% Newmark - deflection
     if use_dof3 or use_dof11:
+        GF = np.zeros(len(M))
         if use_dof3:
             GF = np.zeros([3])
             # GF for 1 blade per timestep
@@ -651,7 +660,6 @@ for n in range(1,timerange):
         residual = np.array([1, 1])
         
         while max(abs(residual)) > eps and counter < 600: 
-            # NÅET HER TIL - d 26/4
             
             M_up = M
             
@@ -661,6 +669,104 @@ for n in range(1,timerange):
             residual = GF_up - M_up @ ddx_up - K @ x_up
             
             K_star = K + (1/(beta_newmark * delta_t**2)) * M_up
+            
+            if use_dof11:
+                # update Mass matrix
+                M[2, 0] = np.trapz(r_mass * pitch_correct_z(u1fz, theta_p), r)
+                M[3, 0] = np.trapz(r_mass * pitch_correct_z(u1ez, theta_p), r)
+                M[4, 0] = np.trapz(r_mass * pitch_correct_z(u2fz, theta_p), r)
+                M[5, 0] = M[2, 0]
+                M[6, 0] = M[3, 0]
+                M[7, 0] = M[4, 0]
+                M[8, 0] = M[2, 0]
+                M[9, 0] = M[3, 0]
+                M[10, 0] = M[4, 0]
+                
+                M[2, 1] = np.trapz(r_mass * r * np.cos(theta_cone) 
+                                   * pitch_correct_y(u1fy, theta_p), r)
+                M[3, 1] = np.trapz(r_mass * r * np.cos(theta_cone) 
+                                   * pitch_correct_y(u1ey, theta_p), r)
+                M[4, 1] = np.trapz(r_mass * r * np.cos(theta_cone) 
+                                   * pitch_correct_y(u2fy, theta_p), r)
+                M[5, 1] = M[2, 1]
+                M[6, 1] = M[3, 1]
+                M[7, 1] = M[4, 1]
+                M[8, 1] = M[2, 1]
+                M[9, 1] = M[3, 1]
+                M[10, 1] = M[4, 1]
+                
+                M[0, 2] = M[2, 0]
+                M[1, 2] = M[2, 1]
+                M[2, 2] = np.trapz(r_mass*pitch_correct_y(u1fy, theta_p)**2 
+                                   + r_mass*pitch_correct_z(u1fz, theta_p)**2,r)
+                
+                M[0, 3] = M[3, 0]
+                M[1, 3] = M[3, 1]
+                M[3, 3] = np.trapz(r_mass*pitch_correct_y(u1ey, theta_p)**2 
+                                   + r_mass*pitch_correct_z(u1ez, theta_p)**2,r)
+                
+                M[0, 4] = M[4, 0]
+                M[1, 4] = M[4, 1]
+                M[4, 4] = np.trapz(r_mass*pitch_correct_y(u2fy, theta_p)**2 
+                                   + r_mass*pitch_correct_z(u2fz, theta_p)**2,r)
+                
+                M[0, 5] = M[5, 0]
+                M[1, 5] = M[5, 1]
+                M[5, 5] = M[2, 2]
+                
+                M[0, 6] = M[6, 0]
+                M[1, 6] = M[6, 1]
+                M[6, 6] = M[3, 3]
+                
+                M[0, 7] = M[7, 0]
+                M[1, 7] = M[7, 1]
+                M[7, 7] = M[4, 4]
+                
+                M[0, 8] = M[5, 0]
+                M[1, 8] = M[5, 1]
+                M[8, 8] = M[2, 2]
+                
+                M[0, 9] = M[6, 0]
+                M[1, 9] = M[6, 1]
+                M[9, 9] = M[3, 3]
+                    
+                M[0, 10] = M[7, 0]
+                M[1, 10] = M[7, 1]
+                M[10, 10] = M[4, 4]
+                
+                #Stiffnes matrix
+                K[2, 2] = omega1f**2 * M[2, 2]
+                K[3, 3] = omega1e**2 * M[3, 3]
+                K[4, 4] = omega2f**2 * M[4, 4]
+                K[5, 5] = K[2, 2]
+                K[6, 6] = K[3, 3]
+                K[7, 7] = K[4, 4]
+                K[8, 8] = K[2, 2]
+                K[9, 9] = K[3, 3]
+                K[10, 10] = K[4, 4]
+                
+                #update GF
+                GF[0] = T
+                GF[1] = M_r - M_g
+                GF[2] = (np.trapz(pt_arr[:, 0, n]*pitch_correct_y(u1fy, theta_p),r) 
+                         + np.trapz(pn_arr[:, 0, n]*pitch_correct_z(u1fz, theta_p),r) )
+                
+                GF[3] = (np.trapz(pt_arr[:, 0, n]*pitch_correct_y(u1ey, theta_p),r) 
+                         + np.trapz(pn_arr[:, 0, n]*pitch_correct_z(u1ez, theta_p),r))
+                
+                GF[4] = (np.trapz(pt_arr[:, 0, n]*pitch_correct_y(u2fy, theta_p),r) 
+                         + np.trapz(pn_arr[:, 0, n]*pitch_correct_z(u2fz, theta_p),r))
+                GF[5] = GF[2]
+                GF[6] = GF[3]
+                GF[7] = GF[4]
+                GF[8] = GF[2]
+                GF[9] = GF[3]
+                GF[10] = GF[4]
+            
+            #Calculate residual
+            residual = GF - M @ ddx_up - K @ x_up
+            
+            K_star = K + (1/(beta_newmark * delta_t**2)) * M
             
             delta_x = np.linalg.inv(K_star) @ residual
             
@@ -688,6 +794,35 @@ for n in range(1,timerange):
         # acceleration vectors
         dduy[:, n] = ddx[0, n]*u1fy + ddx[1, n]*u1ey + ddx[2, n]*u2fy
         dduz[:, n] = ddx[0, n]*u1fz + ddx[1, n]*u1ez + ddx[2, n]*u2fz
+
+        if use_dof11:
+            # displacement vectors  for 1 blade
+            uy[:, n] = (x[2, n]*pitch_correct_y(u1fy, theta_p) 
+                        + x[3, n]*pitch_correct_y(u1ey, theta_p) 
+                        + x[4, n]*pitch_correct_y(u2fy, theta_p))
+            
+            uz[:, n] = (x[2, n]*pitch_correct_z(u1fz, theta_p) 
+                        + x[3, n]*pitch_correct_z(u1ez, theta_p) 
+                        + x[4, n]*pitch_correct_z(u2fz, theta_p))
+            
+            # velocity vectors for 1 blade
+            duy[:, n] = (dx[2, n]*pitch_correct_y(u1fy, theta_p) 
+                         + dx[3, n]*pitch_correct_y(u1ey, theta_p) 
+                         + dx[4, n]*pitch_correct_y(u2fy, theta_p))
+            
+            duz[:, n] = (dx[2, n]*pitch_correct_z(u1fz, theta_p) 
+                         + dx[3, n]*pitch_correct_z(u1ez, theta_p) 
+                         + dx[4, n]*pitch_correct_z(u2fz, theta_p))
+            
+            # acceleration vectors for 1 blade
+            dduy[:, n] = (ddx[2, n]*pitch_correct_y(u1fy, theta_p) 
+                          + ddx[3, n]*pitch_correct_y(u1ey, theta_p) 
+                          + ddx[4, n]*pitch_correct_y(u2fy, theta_p))
+            
+            dduz[:, n] = (ddx[2, n]*pitch_correct_z(u1fz, theta_p) 
+                          + ddx[3, n]*pitch_correct_z(u1ez, theta_p) 
+                          + ddx[4, n]*pitch_correct_z(u2fz, theta_p))
+
         
     #Bending moment for blade 1 for hvert tidskridt ved r=2.8
     M_blade1_flap[n] = np.trapz(pt_arr [:, 0, n]* (r - r[0]) - r_mass*dduy[:,n], (r-r[0])  )
@@ -740,9 +875,17 @@ for n in range(1,timerange):
             
         #update omega
         omega_arr[n] = omega_arr[n-1] + ((M_r - M_g)/ I_rotor) * delta_t
-    
-    
 
+        # if not use_dof11:
+        #     omega_arr[n] = omega_arr[n-1] + ((M_r - M_g)/ I_rotor) * delta_t
+        
+        omega_arr[n] = dx[1, n]
+        
+    #update omega
+    # if use_dof11:
+        # omega_arr[n] = omega_arr[n-1] + ddx[1, n]* delta_t
+        # omega_arr[n] = dx[1, n]
+        
 #%% PLot af M_g mod omega (generator torque mod roational speed)
 mask = x_mask(time_arr, xlim_min, xlim_max)
 
@@ -796,6 +939,7 @@ if plot_theta_p:
 
 #%% Plot af deflection
 
+
 if plot_deflection:
     plt.figure()
     plt.grid()
@@ -811,6 +955,24 @@ if plot_deflection:
     plt.ylim(0,4.5)
     plt.legend()
     plt.show()
+
+if use_dof11 or use_dof3:
+    if plot_deflection:
+        plt.figure()
+        plt.grid()
+        plt.title('Deflection, incoming wind speed: ' + str(V_0))
+        # plt.plot(time_arr[mask], uz[mask], label = 'uz')
+        plt.plot(time_arr, uz[-1, :], label = 'Flapwise tip deflection')
+        plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Deflection [m]')
+        # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+        #plt.xlim(time_arr[0], time_arr[-1])
+        # plt.xlim(50,80)
+        plt.ylim(-5,5)
+        plt.legend()
+        plt.show()
+
     
     # PSD plot for deflection
     # Need to discard the first few seconds to avoid the transcient part which
