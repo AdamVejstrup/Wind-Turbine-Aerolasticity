@@ -147,8 +147,15 @@ def calc_lam(omega, V_0, R):
 def calc_omega(lam, V_0, R):
     # Calculate omega from tip sp
     return lam * V_0 / R
-    
 
+# Pitch correct z
+def pitch_correct_z(u, pitch):
+    return u * np.cos(pitch) - u * np.sin(pitch)
+
+# Pitch correct y
+def pitch_correct_y(u, pitch):
+    return u * np.sin(pitch) + u * np.cos(pitch)
+    
 
 
 
