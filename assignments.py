@@ -42,8 +42,8 @@ use_stall = True # Dynamic stall
 use_turbulence = False # Turbulent data
 use_pitch_controller = True # Pitch controller.
 use_tower_shadow = False #Tower shadow
-use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
-use_dof11 = True
+use_dof3 = True # Find deflections for 1 elastic blade (two other are stiff)
+use_dof11 = False
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.05 # s
@@ -267,6 +267,14 @@ if use_dof3:
     K[1, 1] = omega1e**2 * M[1, 1]
     K[2, 2] = omega2f**2 * M[2, 2]
     
+    
+    C = np.zeros([3,3])
+    delta_damp = 0.03
+    C[0, 0] = omega1f * M[0, 0] * delta_damp/np.pi
+    C[1, 1] = omega1e * M[2, 1] * delta_damp/np.pi
+    C[2, 2] = omega2f * M[2, 2] * delta_damp/np.pi
+    
+    
 if use_dof11:
     M = np.zeros([11, 11])
     M[0, 0] = mass_nac + np.trapz(r_mass,r) * 3
@@ -419,12 +427,20 @@ x = np.zeros([len(M), timerange])
 dx = np.zeros(x.shape)
 ddx = np.zeros(x.shape)
 
-uy = np.zeros([len(r), B, timerange])
-uz = np.zeros(uy.shape)
-duy = np.zeros(uy.shape)
-duz = np.zeros(uy.shape)
-dduy = np.zeros(uy.shape)
-dduz = np.zeros(uy.shape)
+if use_dof3:
+    uy = np.zeros([len(r), timerange])
+    uz = np.zeros(uy.shape)
+    duy = np.zeros(uy.shape)
+    duz = np.zeros(uy.shape)
+    dduy = np.zeros(uy.shape)
+    dduz = np.zeros(uy.shape)
+if use_dof11:
+    uy = np.zeros([len(r), B, timerange])
+    uz = np.zeros(uy.shape)
+    duy = np.zeros(uy.shape)
+    duz = np.zeros(uy.shape)
+    dduy = np.zeros(uy.shape)
+    dduz = np.zeros(uy.shape)
 
 M_blade1_flap = np.zeros(timerange)
 M_blade1_edge = np.zeros(timerange)
@@ -525,8 +541,8 @@ for n in range(1,timerange):
                 
             if use_dof3:
                 if i == 0: #kun for blade 1 (derfor i == 0)
-                    V_rel_y_arr[k, i, n] = V_rel_y_arr[k, i, n] - duy[k, i, n-1]
-                    V_rel_z_arr[k, i, n] = V_rel_z_arr[k, i, n] - duz[k, i, n-1]
+                    V_rel_y_arr[k, i, n] = V_rel_y_arr[k, i, n] - duy[k, n-1]
+                    V_rel_z_arr[k, i, n] = V_rel_z_arr[k, i, n] - duz[k, n-1]
             
             if use_dof11:
                 V_rel_y_arr[k, i, n] = V_rel_y_arr[k, i, n] - duy[k, i, n-1]
@@ -849,8 +865,12 @@ for n in range(1,timerange):
 
         
     #Bending moment for blade 1 for hvert tidskridt ved r=2.8
-    M_blade1_flap[n] = np.trapz(pt_arr [:, 0, n]* (r - r[0]) - r_mass*dduy[:, 0, n], (r-r[0])  )
-    M_blade1_edge[n] = np.trapz(pn_arr [:, 0, n]* (r - r[0]) - r_mass*dduz[:, 0, n], (r-r[0])  )
+    if use_dof3:
+        M_blade1_flap[n] = np.trapz(pt_arr [:, 0, n]* (r - r[0]) - r_mass*dduy[:, n], (r-r[0])  )
+        M_blade1_edge[n] = np.trapz(pn_arr [:, 0, n]* (r - r[0]) - r_mass*dduz[:, n], (r-r[0])  )
+    if use_dof11:
+        M_blade1_flap[n] = np.trapz(pt_arr [:, 0, n]* (r - r[0]) - r_mass*dduy[:, 0, n], (r-r[0])  )
+        M_blade1_edge[n] = np.trapz(pn_arr [:, 0, n]* (r - r[0]) - r_mass*dduz[:, 0, n], (r-r[0])  )
 
 
     #%% update omega and pitch til pitch controller
