@@ -359,7 +359,8 @@ if use_dof11:
     C[9, 9] = C[3, 3]
     C[10, 10] = C[4, 4]
     
-        
+       
+    
 GF = np.zeros(len(M))
 
 #%% Array initializations
