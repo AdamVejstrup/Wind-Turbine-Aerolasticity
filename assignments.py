@@ -114,7 +114,7 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0 = 7 # mean windspeed at hub height m/s
+V_0 = 18 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H = 119  # Hub height m
@@ -1379,7 +1379,7 @@ plt.legend()
 plt.show()
 """
 
-"""
+
 
 plt.figure()
 plt.grid()
@@ -1442,8 +1442,10 @@ uy_freq, uy_psd = signal.welch(uy[-1, 0, obs_to_dis:], fs, nperseg=1024)
 
 fig,ax = plt.subplots(1,1)
 
-plt.plot(uy_freq*2*np.pi/omega, uy_psd, color='darkorange',label='Edgewise tip deflection')
-plt.plot(uz_freq*2*np.pi/omega, uz_psd, label='Flapwise tip deflection')
+omega_norm = np.mean(omega_arr[obs_to_dis:])
+
+plt.plot(uy_freq*2*np.pi/omega_norm, uy_psd, color='darkorange',label='Edgewise tip deflection')
+plt.plot(uz_freq*2*np.pi/omega_norm, uz_psd, label='Flapwise tip deflection')
 
 # plt.plot(uy_freq, uy_psd, color='darkorange',label='Edgewise tip deflection')
 # plt.plot(uz_freq, uz_psd, label='Flapwise tip deflection')
@@ -1489,4 +1491,3 @@ ax.grid()
 
 # mode_shapes_eig = mode_shapes_eig[:, [sort_idx[::-1]]]
 
-"""
