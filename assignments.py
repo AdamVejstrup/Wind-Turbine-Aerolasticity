@@ -6,6 +6,7 @@ Created on Wed Feb  1 11:09:29 2023
 """
 
 import numpy as np
+import array_to_latex as a2l
 import matplotlib.pyplot as plt
 from interpolation import force_coeffs_10MW
 from load_turbulence_box import load
@@ -36,10 +37,10 @@ else:
 # if use_pitch = True then pitch is changed in time interval (see assignment1 description)
 # if use_pitch = False then the pitch is always 0 (except if pitch controller is used)
 use_pitch = False
-use_dwf = False # Dynamic wake filter
-use_stall = False # Dynamic stall
-use_turbulence = False # Turbulent data
-use_pitch_controller = False # Pitch controller.
+use_dwf = True # Dynamic wake filter
+use_stall = True # Dynamic stall
+use_turbulence = True # Turbulent data
+use_pitch_controller = True # Pitch controller.
 use_tower_shadow = True #Tower shadow
 use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
 use_dof11 = False
@@ -1066,6 +1067,12 @@ if use_dof11 or use_dof3:
     
     
     if plot_bending_moment:
+        # PSD plot for deflection
+        # Need to discard the first few seconds to avoid the transcient part which
+        # has a hight impact on the psd. Seconds to discard:
+        sec_to_dis = 500
+        # observations to discard
+        obs_to_dis = int(sec_to_dis/delta_t)
         #Plot of Bending moment at r = 2.8m
         plt.figure()
         plt.grid()
@@ -1091,7 +1098,7 @@ if use_dof11 or use_dof3:
         ax.set( xlabel = '$2 \pi f / \omega}$ [-]', ylabel = 'PSD [$(MN\cdot m)^{2} / Hz$]')
         ax.set_title('Power spectral density of bending moment')
         ax.grid()
-        plt.xlim(0,50)
+        plt.xlim(0,10)
         plt.legend()
         plt.show()
 
