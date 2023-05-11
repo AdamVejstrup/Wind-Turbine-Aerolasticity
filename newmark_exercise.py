@@ -184,14 +184,24 @@ elif non_linear_newmark:
         ddx[:, n] = ddx_up
             
 
-# Plotting the results
+# Cart position and beam angular position
 plt.figure()
 plt.grid()
 plt.title(f'Cart position and beam angular positon, timestep = {h} s')
 plt.plot(time, x[0, :], label='$x_{newmark}$')
 plt.plot(time, x[1, :], label='$\Theta_{newmark}$')
 plt.xlabel('Time [s]')
-plt.ylabel('Cart position $x$ and beam angle $\Theta$')
+plt.ylabel('Cart position $x$ [m] and beam angle $\Theta$ [rad]')
+plt.legend()
+plt.show()
+
+# Beam angular position
+plt.figure()
+plt.grid()
+plt.title(f'Beam angular position, timestep = {h} s')
+plt.plot(time, np.rad2deg(x[1, :]), label='$\Theta_{newmark}$')
+plt.xlabel('Time [s]')
+plt.ylabel('Beam angle $\Theta$ [deg]')
 plt.legend()
 plt.show()
 
