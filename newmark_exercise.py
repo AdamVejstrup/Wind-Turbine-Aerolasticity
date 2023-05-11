@@ -3,105 +3,142 @@
 Created on Wed Mar 29 10:52:17 2023
 
 @author: Toke Schäffer
+
+This script solves the 2 DOF system with a pendulum on a cart using the Newmark
+method. The system is solved using either linear or non-linear Newmark.
+
+The two degrees of freedom are:
+x: Position of the cart named x[0, :] in the code
+theta: Angular position of the pendulum/beam named x[1, :] in the code
+
+The linear Newmark method requires a small timestep to be stable i.e. h = 0.0001 s
+The non-linear Newmark method is stable for larger timesteps i.e. h = 0.01 s
+
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
 
+# Choose between linear or non-linear newmark
 linear_newmark = False
 non_linear_newmark = True
 
-L = 2 # [m]
-m1 = 1 # [kg] mass of cart
-m2 = 0.5 # [kg/m] mass of beam
-sm = 0.5*m2 * L**2 # Coefficient for coordinate [0, 1] and [1, 0] of the mass matrix.
-# Note that the actual cordinate is sin(theta) * Coefficient from above
+# Setting simulation time
+h = 0.01    # Timestep [s]
+tstart = 0  # Start time [s]
+tend = 50   # End time [s]
 
-im = (m2 * L**3) / 3 # Coordinate [1, 1] of mass matrix
-g = 9.81 # [m/s**2]
+# Time vector
+time = np.arange(tstart, tend, h)
 
-# Given parameters
+# Number of degrees of freedom
+dof = 2     # x and theta
+
+# System parameters
+L = 2       # Length of pendulum/beam [m]
+m1 = 1      # Mass of cart [kg]
+m2 = 0.5    # Mass of pendulum/beam [kg]
+
+# Mass matrix given on slide 8 Newmark part 1
+
+# Coefficient for coordinate [0, 1] and [1, 0] of the mass matrix.
+# Note that the actual cordinate is sin(theta) * coeeficient
+sm = 0.5*m2 * L**2
+
+im = (m2 * L**3) / 3    # Coordinate [1, 1] of mass matrix
+g = 9.81    # Gravitational acceleration [m/s^2]
+
+# Newmark parameters:
+# In order for the method to be stable the following conditions must be met:
+# gamma >= 0.5
+# beta >= 0.25 * (gamma + 0.5)**2
+
+# We use the following parameters:
 if linear_newmark:
+    # Linear Newmark parameters (slide 7 Newmark part 1)
     beta = 0.25
     gamma = 0.50
+    
 elif non_linear_newmark:
+    # Non-linear Newmark parameters (slide 17 Newmark part 1)
     beta = 0.27
     gamma = 0.51
     eps = 0.000001
 else:
+    # Raise error if neither linear or non-linear newmark is chosen
     raise ValueError('Please choose between linear or non-linear newmark')
 
-h = 0.001 # Timestep
-
-tstart = 0 # Start time 
-tend = 50 # End time
-
-time = np.arange(tstart, tend, h)
+# Initilization of position, velocity and acceleration vectors
 
 # x[0, :] is the position of the cart
 # x[1, :] is the angular position of the beam
+x = np.zeros([dof, len(time)])
+
 # dx[0, :] is the velocity of the cart
 # dx[1, :] is the angular velocity of beam
-
-x = np.zeros([2, len(time)])
-
 dx = np.zeros(x.shape)
 
+# System matrices
 
-M = np.array([[m2*L + m1,           -sm*np.sin(x[1, 0])],
-              [-sm*np.sin(x[1, 0]),  im]])
+# Mass matrix given on slide 8 Newmark part 1
+M = np.array([[m2*L + m1, -sm * np.sin(x[1, 0])],
+              [-sm * np.sin(x[1, 0]), im]])
 
+# Damping matrix
 C = np.zeros(M.shape)
 
+# Stiffness matrix
 K = np.zeros(M.shape)
 
-gf = np.zeros(2)
+# Generalized force vector
+gf = np.zeros(dof)
+
+# Initial conditions (slide 8 Newmark part 1)
 gf[0] = dx[1, 0]**2 * np.cos(x[1, 0]) * sm
 gf[1] = g*sm * np.cos(x[1, 0])
-
 
 if linear_newmark:
     # Step 1: System matrices
     M_star = M + (gamma*h*C) + (beta * h**2 * K)
 
     # Step 2: Initial conditions
-
     ddx = np.zeros(x.shape)
-    ddx[:, 0] = np.linalg.inv(M_star)@(gf[:, 0] - C@dx[:, 0] - K@x[:, 0])
+    ddx[:, 0] = np.linalg.inv(M_star)@(gf - C@dx[:, 0] - K@x[:, 0])
     
     for n in range(1, len(time)):
         # Step 3: Prediction step
-        
         dx_up = dx[:, n-1] + (1-gamma)*h * ddx[:, n-1]
         
         x_up = x[:, n-1] + h*dx[:, n-1] + (0.5-beta)*h**2*ddx[:, n-1]
         
-        # Step 4: Correction step
+        # Mass matrix depends on the angular position of the beam
+        # Therefore we need to update the mass matrix
+        M_up = np.array([[m2*L + m1, -sm*np.sin(x_up[1])],
+                    [-sm*np.sin(x_up[1]), im]])
         
-        M_up = np.array([[m2*L + m1,      -sm*np.sin(x_up[1])],
-                    [-sm*np.sin(x_up[1]),  im]])
-        
+        # Generalized force vector depends on the angular position of the beam
         gf_up = np.array([dx_up[1]**2 * np.cos(x_up[1]) * sm,
                           g*sm * np.cos(x_up[1])])
         
         M_star_up = M_up + gamma*h*C + beta*(h**2)*K
         
+        # Step 4: Correction step
         ddx_correct = np.linalg.inv(M_star_up) @ (gf_up - (C @ dx[:, n-1]) - (K @ x[:, n-1]))
         
         dx_correct = dx_up + gamma*h*ddx_correct
         
         x_correct = x_up + beta*h**2*ddx_correct
         
-        # Updating position, velocity and acceleration
+        # Saving position, velocity and acceleration
         x[:, n] = x_correct
         dx[:, n] = dx_correct
         ddx[:, n] = ddx_correct
 
 elif non_linear_newmark:
     
+    # Step 1: Initial conditions
     ddx = np.zeros(x.shape)
     ddx[:, 0] = np.linalg.inv(M) @ (gf - C @ dx[:, 0] - K @ x[:, 0])
-    
     
     for n in range(1, len(time)):
         
@@ -110,27 +147,30 @@ elif non_linear_newmark:
         dx_up = dx[:, n-1] + h*ddx[:, n-1]
         ddx_up = ddx[:, n-1]
 
-
         #Step 3: Residual calculation
         counter = 0
         r = np.array([1, 1])
         
+        # Step 4: System matrices and increment correction
+        # The residual is calculated until it is smaller than eps or the
+        # counter is larger than 600
         while max(abs(r)) > eps and counter < 600:
             
-            M_up = np.array([[m2*L + m1,      -sm*np.sin(x_up[1])],
-                        [-sm*np.sin(x_up[1]),  im]])
+            # Update mass matrix and generalized force vector
+            M_up = np.array([[m2*L + m1, -sm*np.sin(x_up[1])],
+                        [-sm*np.sin(x_up[1]), im]])
             
             gf_up = np.array([dx_up[1]**2 * np.cos(x_up[1]) * sm,
                               g*sm * np.cos(x_up[1])])
             
-            #Calculate residual
+            # Calculate residual
             r = gf_up - M_up @ ddx_up - C @ dx_up - K @ x_up
             
             K_star = K + gamma/(beta*h) * C + (1/(beta * h**2)) * M_up
             
             delta_x = np.linalg.inv(K_star) @ r
             
-            #Update dof
+            # Update dof
             x_up = x_up + delta_x
             dx_up = dx_up + gamma / (beta*h) * delta_x
             ddx_up = ddx_up + 1 / (beta*h**2) * delta_x
@@ -138,22 +178,20 @@ elif non_linear_newmark:
             # Update counter
             counter = counter + 1
         
-        #Save updated dof
+        # Saving position, velocity and acceleration
         x[:, n] = x_up
         dx[:, n] = dx_up
         ddx[:, n] = ddx_up
             
 
 # Plotting the results
-
 plt.figure()
 plt.grid()
 plt.title(f'Cart position and beam angular positon, timestep = {h} s')
-plt.plot(time, x[0, :],label='$x_{newmark}$')
-plt.plot(time, x[1, :],label='$\Theta_{newmark}$')
+plt.plot(time, x[0, :], label='$x_{newmark}$')
+plt.plot(time, x[1, :], label='$\Theta_{newmark}$')
 plt.xlabel('Time [s]')
-plt.ylabel('x, $\Theta$')
+plt.ylabel('Cart position $x$ and beam angle $\Theta$')
 plt.legend()
 plt.show()
-    
 
