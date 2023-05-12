@@ -5,25 +5,33 @@ Created on Wed Mar  1 15:30:30 2023
 @author: adamv
 """
 import numpy as np
-import math
+
+A = 0.2                 # Vibration amplitude [m]
+omega = 5               # Vibration frequency [rad/s]
+a_0 = np.deg2rad(10)    # Angle of attack [deg]
+V_0 = 10                # Wind speed [m/s]
+c = 1                   # Chord length [m]
+rho = 1.225             # Air density [kg/m^3]
+T = 2*np.pi / omega     # Period [s]
+cyc = 10                # Number of full cycles
+N = 50                  # Number of timesteps
+dt = cyc * T / N        # Calculate timestep [s]
+
+time_arr = np.zeros(N)  # Initialize time array
+
+# Position along x-axis (slope of x-axis is determined by the angle theta)
+x = np.zeros(N)         # Initialize x array
+F_x = np.zeros(N)       # Initialize force array
 
 
-A = 0.2#m
-omega = 5 #rad/s
-a_0 = np.deg2rad(10) #deg
-V_0 = 10 #m/s
-c = 1 #m, cord length
-rho = 1.225 #kg/m^3
+# # Airfoil data
+# # Columns: alpha, cl, cd, cm, f_stat, cl_inv, cl_fs
+# a_data = np.loadtxt(a_file_name)
 
+# # Extractig force coefficients
+# (alpha_tab, cl_tab, cd_tab, cm_tab,
+# f_stat_tab, cl_inv_tab, cl_fs_tab) = a_data.T
 
-T = 2*np.pi / omega #one period T
-cyc = 10 # number of full cycles
-N = 50 #number of timesteps
-dt = cyc * T / N #timestep
-
-time_arr = np.zeros(N)
-x = np.zeros(N)
-F_x = np.zeros(N)
 
 
 air_foil = np.loadtxt("FFA-W3-241.txt")
