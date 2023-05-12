@@ -6,13 +6,29 @@ Created on Sun Mar 26 11:15:31 2023
 
 Script that calculates the motion of an airfoil suspended by a spring using
 odeint from scipy.integrate. The airfoil has a certain geometric angle of attack
-which can be changed. The code runs with and without dynamic stall.
+alpha_g which can be changed. The code runs with and without dynamic stall
+(boolean variable use_stall). 
+
+Notes on theory (page 114, Aerodynamics of Wind Turbines, Hansen):
+If the airfoil moves downwards, the angle of attack increases and the lift
+changes according to the airfoil data. If the airfoil moves upwards, the angle
+of attack decreases. If the airfoil is moving downwards and the slope of the
+lift dcl/dalpha is positive, the lift coefficient will increase. Accordingly,
+the aerodynamic force will increase. The aerodynamic force is in the opposite
+direction of the motion of the airfoil. This means that the airfoil will be
+slowed down (positive damping). The same argument is true if the airfoil moves
+upwards and the slope of the lift dcl/dalpha is negative, see (alpha, cl)-plot. 
+
+Based on the above argument, it is very important to have correct estimates of
+the lift. This is why the dynamic stall model is clever to use here.
+For example, the code is unstable for alpha_g = 20 deg without dynamic stall,
+but stable with dynamic stall. Computers may overestimate ocscillations
+if static lift data is used.
 """
 
 import numpy as np
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
-import seaborn as sb
 
 # Use dynamic stall
 use_stall = True
@@ -21,7 +37,7 @@ use_stall = True
 alpha_g = np.deg2rad(20)
 
 # Simulation time [s]
-t_sim = 20
+t_sim = 40
 
 # Number of time steps
 nots = 1000
@@ -155,6 +171,26 @@ plt.xlim(t[0], t[-1])
 plt.xlabel('Time [s]')
 plt.ylabel('x [m]')
 plt.grid()
+plt.legend()
+plt.show()
+
+# Plotting the static lift coefficient
+# It should be avoided to be in the stall region 
+cl_max_idx = np.argmax(cl_tab)
+
+x_lim_lower, x_lim_upper = -10, 30
+
+plt.figure()
+plt.title('Static lift coefficient')
+plt.plot(alpha_tab, cl_tab)
+plt.xlabel('Angle of attack [deg]')
+plt.ylabel('Lift coefficient')
+plt.axvline(alpha_tab[cl_max_idx], color='r', linestyle='--', label='Stall angle')
+label_1 = 'Positive slope for increasing angle of attack'
+label_2 = 'Negative slope for increasing angle of attack'
+plt.axvspan(x_lim_lower, alpha_tab[cl_max_idx], alpha=0.2, color='g', label=label_1)
+plt.axvspan(alpha_tab[cl_max_idx], x_lim_upper, alpha=0.2, color='r', label=label_2)
+plt.xlim(x_lim_lower, x_lim_upper)
 plt.legend()
 plt.show()
 
