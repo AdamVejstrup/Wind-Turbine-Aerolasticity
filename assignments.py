@@ -34,16 +34,17 @@ use_pitch = False #Time interval pitch
 use_dwf = True # Dynamic wake filter
 use_stall = True # Dynamic stall
 use_turbulence = False # Turbulent data
-use_pitch_controller = True # Pitch controller.
-use_tower_shadow = False #Tower shadow
+use_pitch_controller = False # Pitch controller.
+use_tower_shadow = True #Tower shadow
 use_wind_shear = False # Wind shear (true=wind shear 0.2, else 0)
-use_dof3 = True # Find deflections for 1 elastic blade (two other are stiff)
+use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
 use_dof11 = False
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.05 # s
-timerange=8191
-# timerange=200*9
+delta_t=0.2
+#timerange=8191
+timerange=4000
 
 
 if use_wind_shear:
@@ -53,7 +54,7 @@ else:
 
 
 #for the plots, plots from xlim_min and forward
-xlim_min = 30  #s
+xlim_min = 0  #s
 xlim_max = 200 #s
 
 # xlim_max = time_arr[-1] #s
@@ -64,7 +65,7 @@ if use_turbulence and timerange < 4000:
 
 # %% Choose plots
 
-plot_gen_char = False # Generator characteristic
+plot_gen_char = False # Generator characteristic (laves i functions)
 plot_omega = False # Omega against time
 plot_hubwind = False #Wind at hub height
 plot_theta_p = False # Pitch against time
@@ -76,9 +77,9 @@ plot_thrust_per_blade = False # Thrust for each blade and total thrust
 plot_pn_specific_element = False # Normal loading for specific blade and specific blade element
 plot_thrust_psd = False # PSD of total thrust
 plot_turbulence_contour = False # Contour plot of turbulence
-plot_deflection = True # Plot of deflections 
-plot_tower_deflection = False
-plot_bending_moment = True # Plot of bending moment, time and PSD
+plot_deflection = False # Plot of blade deflections 
+plot_tower_deflection = False # Plot of tower deflections 
+plot_bending_moment = False # Plot of bending moment, time and PSD
 
 # %% Force coeff files
 
@@ -113,7 +114,7 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0 = 7 # mean windspeed at hub height m/s
+V_0 = 10 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H = 119  # Hub height m
@@ -146,14 +147,14 @@ omega_ref = 1.01#tommelfingerregel fra Martin
 
 if use_pitch_controller:
     omega = (lam_opt*V_0)/R 
-    # omega= 7.229*2*np.pi/60 # rad/s
+    #omega= 7.229*2*np.pi/60 # rad/s
     omega_arr = np.zeros(timerange)
     omega_arr[0] = omega
     omega_arr[1] = omega
     
 else:
-    # omega= 7.229*2*np.pi/60 # rad/s    Til assignment 1 og 2
-    omega = 0.628 #rad/s                 Til assignment 3 
+    omega= 7.229*2*np.pi/60 # rad/s    Til assignment 1 og 2
+    #omega = 0.628 #rad/s                 Til assignment 3 
     omega_arr = np.full(timerange, omega)
 
 theta_cone = 0 # radianer
@@ -529,27 +530,11 @@ for n in range(1,timerange):
             V0y_arr[k, i, n] = V0_4[1]
             V0z_arr[k, i, n] = V0_4[2]
             
+
+            V_rel_y_arr[k, i, n] = V0y_arr[k, i, n] + Wy_arr[k, i, n-1] - omega_arr[n-1] * r[k] * np.cos(theta_cone)
+            V_rel_z_arr[k, i, n] = V0z_arr[k, i, n] + Wz_arr[k, i, n-1]    
             
-            if use_tower_shadow:
-                r_til_punkt=( y1_arr[k,i,n]**2+z1_arr[k,i,n]**2   )**(1/2) #Distancen til punktet r ud fra koordinaterne fra vektoren r_1
-                if x1_arr[k,i,n]<=H:    #Tower shadow gælder kun når x er mindre end hub height H
-                    tower_rad=3.32
-                elif x1_arr[k,i,n]>H:
-                    tower_rad=0
-                Vr=z1_arr[k,i,n]/r_til_punkt*V0z_arr[k,i,n]*(1-(tower_rad/r_til_punkt)**2)
-                Vtheta=y1_arr[k,i,n]/r_til_punkt*V0z_arr[k,i,n]*(1+(tower_rad/r_til_punkt)**2)
-                
-                #evt også tilføje deflections 
-                V_rel_y_arr[k, i, n]=(z1_arr[k,i,n]/r_til_punkt)*Vr  +  (y1_arr[k,i,n]/r_til_punkt)*Vtheta
-                V_rel_z_arr[k, i, n]=(y1_arr[k,i,n]/r_til_punkt)*Vr  -  (z1_arr[k,i,n]/r_til_punkt)*Vtheta
-        
             
-            else:    
-            # Kommentar til r: Vi bruger r i nedenstående fordi den allerede er givet i system 4,
-            # hvilket vores relative hastigheder også er
-                V_rel_y_arr[k, i, n] = V0y_arr[k, i, n] + Wy_arr[k, i, n-1] - omega_arr[n-1] * r[k] * np.cos(theta_cone)
-                V_rel_z_arr[k, i, n] = V0z_arr[k, i, n] + Wz_arr[k, i, n-1]
-                
             if use_dof3:
                 if i == 0: #kun for blade 1 (derfor i == 0)
                     V_rel_y_arr[k, i, n] = V_rel_y_arr[k, i, n] - duy[k, n-1]
@@ -559,7 +544,22 @@ for n in range(1,timerange):
                 V_rel_y_arr[k, i, n] = V_rel_y_arr[k, i, n] - duy[k, i, n-1]
                 V_rel_z_arr[k, i, n] = V_rel_z_arr[k, i, n] - duz[k, i, n-1] - dx[0, n-1]
                 
-
+            if use_tower_shadow:
+                r_til_punkt=( y1_arr[k,i,n]**2+z1_arr[k,i,n]**2   )**(1/2) #Distancen til punktet r ud fra koordinaterne fra vektoren r_1
+                if x1_arr[k,i,n]<=H:    #Tower shadow gælder kun når x er mindre end hub height H
+                    tower_rad=3.32
+                elif x1_arr[k,i,n]>H:
+                    tower_rad=0
+                Vr=z1_arr[k,i,n]/r_til_punkt*V_rel_z_arr[k,i,n]*(1-(tower_rad/r_til_punkt)**2)
+                Vtheta=y1_arr[k,i,n]/r_til_punkt*V_rel_z_arr[k,i,n]*(1+(tower_rad/r_til_punkt)**2)
+                
+                #evt også tilføje deflections 
+                V_rel_z_arr[k, i, n]=(z1_arr[k,i,n]/r_til_punkt)*Vr  +  (y1_arr[k,i,n]/r_til_punkt)*Vtheta
+                V_rel_y_arr[k, i, n]=(y1_arr[k,i,n]/r_til_punkt)*Vr  -  (z1_arr[k,i,n]/r_til_punkt)*Vtheta
+            
+            
+            
+            
             phi = np.arctan(V_rel_z_arr[k, i, n]/(-V_rel_y_arr[k, i, n]))
             
             if use_pitch_controller:
@@ -973,10 +973,13 @@ if plot_omega:
     plt.figure()
     plt.grid()
     plt.title('Rotational speed $\omega$')
-    plt.plot(time_arr[mask], omega_arr[mask], label = '$\omega$ rad/s')
+    #plt.plot(time_arr[mask], omega_arr[mask], label = '$\omega$ rad/s')
+    plt.plot(time_arr, omega_arr, label = '$\omega$ rad/s')
     plt.xlabel('Time [s]')
     plt.ylabel('$\omega$ [rad/s]')
-    plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    #plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    plt.xlim(20,200)
+    plt.ylim(0.75,0.95)
     plt.legend()
     plt.show()
 
@@ -1222,8 +1225,8 @@ if plot_deflection:
             plt.show()  
 
 #%% Plot x og y position sammmen for en given airfoil
-mask = x_mask(time_arr, xlim_min, xlim_max)
-
+#mask = x_mask(time_arr, xlim_min, xlim_max)
+mask = x_mask(time_arr, 0, 30)
 # Last blade element
 blade_element = 17
 
@@ -1252,6 +1255,7 @@ if plot_thrust_power:
     ax1.plot(time_arr[mask], (T_arr/(10**6))[mask], color=color)
     ax1.tick_params(axis='y', labelcolor=color)
     ax1.set_xlim([time_arr[mask][0], time_arr[mask][-1]])
+    #ax1.set_xlim(0,30)
     
     ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
     
@@ -1266,20 +1270,24 @@ if plot_thrust_power:
     plt.figure()
     plt.grid()
     plt.title('Power')
-    plt.plot(time_arr[mask], (P_arr/(10**6))[mask],label = 'Power')
+    #plt.plot(time_arr[mask], (P_arr/(10**6))[mask],label = 'Power')
+    plt.plot(time_arr, P_arr/10**6,label='Power')
     plt.xlabel('Time [s]')
     plt.ylabel('Power [MW]')
-    plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    #plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    plt.xlim(100,200)
     plt.legend()
     plt.show()
 
     plt.figure()
     plt.grid()
     plt.title('Thrust')
-    plt.plot(time_arr[mask], (T_arr/(10**6))[mask],label = 'Thrust', color='tab:orange')
+    #plt.plot(time_arr[mask], (T_arr/(10**6))[mask],label = 'Thrust', color='tab:orange')
+    plt.plot(time_arr,T_arr/10**6,label='Thrust', color='tab:orange')
     plt.xlabel('Time [s]')
     plt.ylabel('Thrust [MN]')
-    plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    #plt.xlim(time_arr[mask][0], time_arr[mask][-1])
+    plt.xlim(0,30)
     plt.legend()
     plt.show()
 
@@ -1303,7 +1311,7 @@ if plot_induced_wind:
     ax1.legend(loc='center left')
     
 #%% Plotting tower shadow
-
+#%% Plotting Wind velocity for tower shadow
 if use_tower_shadow:
     blade_element = 8
     plt.figure()
@@ -1396,7 +1404,7 @@ if plot_pn_specific_element:
     # has a hight impact on the psd. Seconds to discard:
     sec_to_dis = 5
     # observations to discard
-    obs_to_dis = int(sec_to_dis/deltat)
+    obs_to_dis = int(sec_to_dis/delta_t)
     
     # NB: Check on the time plot, that the transient part is gone
     
