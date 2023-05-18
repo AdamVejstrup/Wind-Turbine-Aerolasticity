@@ -56,7 +56,7 @@ def x_mask(x, start=None, end=None):
 def make_gen_char(omega_rated, K):
     
     omega_start = 6*2*np.pi/60 #6rpm til rad/s
-    omega_slut = 11*2*np.pi/60 #6rpm til rad/s
+    omega_slut = 11*2*np.pi/60 #11rpm til rad/s
     
     omega_range = np.linspace(omega_start, omega_slut, 100)
     
