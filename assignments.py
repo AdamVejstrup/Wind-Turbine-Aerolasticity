@@ -579,10 +579,9 @@ for n in range(1,timerange):
                 cl_arr[k, i, n] = cl
             
                         
-            # V_0 er konstant nu, men skal opdateres til en liste når turbulens tages med
-                        
             a = -Wz_arr[k, i, n-1]/V_0
-            
+             
+            # Glauert correction 
             if a <= 0.33:
                 f_g=1
             else:
@@ -606,8 +605,7 @@ for n in range(1,timerange):
             pn_arr[k, i, n]=p_z
             
             
-            # F = 1
-            # Når man laver 
+            #Prandtl tiploss correction (for the infinite number of blades assumption)
             if np.sin(abs(phi)) <= 0.01 or R-r[k] <= 0.005:
                 F = 1
             else:
