@@ -15,10 +15,10 @@ from numpy import unravel_index
 H=119  #Hub height m
 L_s=7.1  #Length of shaft m
 R=89.15 #Radius m
-tilt_deg=-5 #grader   (bruges ikke i uge 1)
+tilt_deg=-5 #grader  
 
 theta_cone=0 #radianer
-theta_yaw=np.deg2rad(0) #radianer
+theta_yaw=np.deg2rad(20) #radianer
 theta_tilt=0 #radianer
 
 
@@ -29,7 +29,7 @@ timerange=200
 
 r=70 #m
 
-wind_shear=0
+wind_shear=0.2
 
 v0=10 #mean windspeed at hub height m/s
 
@@ -86,8 +86,8 @@ for i in range(timerange):
     time.append(i*delta_t)
     
     theta_blade1.append(theta_blade1[i]+omega*delta_t)
-    theta_blade2.append(theta_blade1[i+1]+omega*delta_t+2*np.pi/3)
-    theta_blade3.append(theta_blade1[i+1]+omega*delta_t+4*np.pi/3)
+    theta_blade2.append(theta_blade1[i]+omega*delta_t+2*np.pi/3)
+    theta_blade3.append(theta_blade1[i]+omega*delta_t+4*np.pi/3)
     
     a23=np.array([[np.cos(theta_blade1[i+1]),np.sin(theta_blade1[i+1]),0],
               [-np.sin(theta_blade1[i+1]),np.cos(theta_blade1[i+1]),0],
