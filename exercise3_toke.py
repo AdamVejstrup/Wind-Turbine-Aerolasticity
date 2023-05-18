@@ -34,6 +34,8 @@ class Airfoil:
         time_arr = np.zeros(num_of_steps)   # Initialize time array
         x = np.zeros(time_arr.shape)        # Initialize x array
         F_x = np.zeros(time_arr.shape)      # Initialize force array
+        F_drag = np.zeros(time_arr.shape)      # Initialize force array
+        F_lift = np.zeros(time_arr.shape)      # Initialize force array
         accum_work = np.zeros(time_arr.shape) # Initialize accumulated work array
         fs_arr = np.zeros(time_arr.shape)
         cl_arr = np.zeros(time_arr.shape)
@@ -88,6 +90,12 @@ class Airfoil:
             
             F_x[n] = F_x_start * F_x_end
             
+            F_lift[n] = 0.5 * rho * V_rel**2 * self.c* cl * np.sin(alpha-theta)
+            
+            F_drag[n] = -0.5 * rho * V_rel**2 * self.c* cd * np.cos(alpha-theta)
+            #print(np.cos(alpha-theta))
+            print('alpha=',alpha)
+            print('theta=',theta)
             # accum_work_coeff = A * omega
             # accum_work_integral = np.trapz(F_x * np.cos(omega * time_arr), time_arr)
             # accum_work[n] = accum_work_coeff * accum_work_integral
@@ -108,6 +116,9 @@ class Airfoil:
         self.sim_cd = cd_arr
         self.sim_V_rel = V_rel_arr
         self.sim_F_x = F_x
+        self.sim_F_drag = F_drag
+        self.sim_F_lift = F_lift
+        
         self.sim_power = work / (time_arr[-1]-time_arr[0])
         
         return
@@ -167,9 +178,26 @@ class Airfoil:
         plt.grid()
         plt.title("Aerodynamic force")
         plt.xlabel("Time [s]")
-        plt.ylabel("Aerodynamic force [N]")
+        plt.ylabel("Aerodynamic force [N/m]")
         plt.plot(self.sim_time, self.sim_F_x)
         plt.show()
+        
+        plt.figure()
+        plt.grid()
+        plt.title("Drag force")
+        plt.xlabel("Time [s]")
+        plt.ylabel("Fx,d [N/m]")
+        plt.plot(self.sim_time, self.sim_F_drag)
+        plt.show()
+        
+        plt.figure()
+        plt.grid()
+        plt.title("Lift force")
+        plt.xlabel("Time [s]")
+        plt.ylabel("Fx,l [N/m]")
+        plt.plot(self.sim_time, self.sim_F_lift)
+        plt.show()
+        
         return
     
     def plot_work(self):
@@ -188,8 +216,8 @@ class Airfoil:
 
 if __name__ == "__main__":
     airfoil = Airfoil()
-    airfoil.calc_work(a_0=np.deg2rad(0),
-                      theta=np.deg2rad(0),
+    airfoil.calc_work(a_0=np.deg2rad(10),
+                      theta=np.deg2rad(30),
                       A=0.2,
                       omega=5,
                       V_0=10,
@@ -197,6 +225,15 @@ if __name__ == "__main__":
                       use_stall=True)
     
     airfoil.plot_work()
+    airfoil.plot_alpha()
+    airfoil.plot_cl()
+    airfoil.plot_cd()
+    airfoil.plot_x()
+    airfoil.plot_V_rel()
+    airfoil.plot_F_x()
+    airfoil.plot_work()
+    
+    
     print(airfoil.sim_power)
     # print(airfoil.power)
     # plt.figure()
