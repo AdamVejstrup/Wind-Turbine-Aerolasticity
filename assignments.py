@@ -31,18 +31,18 @@ plt.rcParams.update({'font.size':12})
 # if use_pitch = True then pitch is changed in time interval (see assignment1 description)
 # if use_pitch = False then the pitch is always 0 (except if pitch controller is used)
 use_pitch = False #Time interval pitch
-use_dwf = True # Dynamic wake filter
-use_stall = True # Dynamic stall
+use_dwf = False # Dynamic wake filter
+use_stall = False # Dynamic stall
 use_turbulence = False # Turbulent data
 use_pitch_controller = False # Pitch controller.
 use_tower_shadow = True #Tower shadow
-use_wind_shear = False # Wind shear (true=wind shear 0.2, else 0)
+use_wind_shear = True # Wind shear (true=wind shear 0.2, else 0)
 use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
 use_dof11 = False
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
-delta_t=0.05 # s
-delta_t=0.2
+delta_t=0.15 # s
+#delta_t=0.2
 #timerange=8191
 timerange=4000
 
@@ -69,7 +69,7 @@ plot_gen_char = False # Generator characteristic (laves i functions)
 plot_omega = False # Omega against time
 plot_hubwind = False #Wind at hub height
 plot_theta_p = False # Pitch against time
-plot_position_sys1 = False # (y, x)-coordinates in system 1 of given blade element
+plot_position_sys1 = True # (y, x)-coordinates in system 1 of given blade element
 plot_thrust_power = False # Thrust and power
 plot_induced_wind = False # Induced wind y and z
 plot_load_distribution = False # Load distribution and dtu 9 m/s load distribution
@@ -80,6 +80,7 @@ plot_turbulence_contour = False # Contour plot of turbulence
 plot_deflection = False # Plot of blade deflections 
 plot_tower_deflection = False # Plot of tower deflections 
 plot_bending_moment = False # Plot of bending moment, time and PSD
+plot_tower_shadow=True
 
 # %% Force coeff files
 
@@ -118,11 +119,10 @@ V_0 = 10 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H = 119  # Hub height m
-#a=3.32 #m tower radius
 L_s = 7.1  # Length of shaft m
 R = 89.17 # Radius m
 A = R**2 *np.pi #m^2
-tilt_deg = -5 # grader   (bruges ikke i uge 1)
+tilt_deg = 0 # grader   (bruges ikke i uge 1)
 lam_opt = 8 #
 P_rated = 10.64*10**6 #W
 rho = 1.225 # kg/m**3
@@ -139,26 +139,25 @@ K_P = 1.5 # s
 
 C_p_opt = 0.47 #optimal C_p for DTU 10MW
 K_const = 0.5*rho*A*R**3 * (C_p_opt/lam_opt**3) #konstant der bruges til at regne M_g
-omega_rated = (P_rated/K_const)**(1/3)  
+omega_rated = (P_rated/K_const)**(1/3)
 M_g_max = K_const * omega_rated**2  #Vores max generator torque
-# M_g_max = K_const * 1.01**2  #Vores max generator torque
-# omega_ref = 1.02 * omega_rated #tommelfingerregel fra Martin
+# omega_ref = 1.02 * omega_rated #tommelfingerregel fra Taesong
 omega_ref = 1.01#tommelfingerregel fra Martin
 
 if use_pitch_controller:
     omega = (lam_opt*V_0)/R 
-    #omega= 7.229*2*np.pi/60 # rad/s
     omega_arr = np.zeros(timerange)
     omega_arr[0] = omega
     omega_arr[1] = omega
     
 else:
-    omega= 7.229*2*np.pi/60 # rad/s    Til assignment 1 og 2
+    #omega= 7.229*2*np.pi/60 # rad/s    Til assignment 1 og 2
     #omega = 0.628 #rad/s                 Til assignment 3 
+    omega=0.62
     omega_arr = np.full(timerange, omega)
 
 theta_cone = 0 # radianer
-theta_yaw = np.deg2rad(0) # radianer
+theta_yaw = np.deg2rad(20) # radianer
 theta_tilt = 0 # radianer
 theta_p = 0 # radianer
 theta_p_I = 0 # radianer
@@ -515,9 +514,6 @@ for n in range(1,timerange):
             if use_turbulence:
                 turb = f2d([x1_arr[k, i, n]], [y1_arr[k, i, n]])[0]
                 
-                # v_arr[n] = f([x_arr[n]],[y_arr[n]])
-                # v_arr_point[n] = f(point_x,point_y)
-                
                 V0_array = np.array([0,0,turb + V_0 * (x1_arr[k, i, n]/H)**wind_shear])
                 
             else:
@@ -553,7 +549,6 @@ for n in range(1,timerange):
                 Vr=z1_arr[k,i,n]/r_til_punkt*V_rel_z_arr[k,i,n]*(1-(tower_rad/r_til_punkt)**2)
                 Vtheta=y1_arr[k,i,n]/r_til_punkt*V_rel_z_arr[k,i,n]*(1+(tower_rad/r_til_punkt)**2)
                 
-                #evt også tilføje deflections 
                 V_rel_z_arr[k, i, n]=(z1_arr[k,i,n]/r_til_punkt)*Vr  +  (y1_arr[k,i,n]/r_til_punkt)*Vtheta
                 V_rel_y_arr[k, i, n]=(y1_arr[k,i,n]/r_til_punkt)*Vr  -  (z1_arr[k,i,n]/r_til_punkt)*Vtheta
             
@@ -1309,13 +1304,14 @@ if plot_induced_wind:
     ax1.set_ylabel('W [m/s]')
     ax1.set_xlim([xlim_min, xlim_max])
     ax1.legend(loc='center left')
-    
-#%% Plotting tower shadow
+
+
+
 #%% Plotting Wind velocity for tower shadow
-if use_tower_shadow:
+if plot_tower_shadow:
     blade_element = 8
     plt.figure()
-    plt.title('Wind velocity (V1)')
+    plt.title('Relative wind velocity (Vrel)')
     plt.plot(np.rad2deg(theta_blade_arr[0,:]),V_rel_y_arr[blade_element,0,:],color='blue', label='Vy')
     plt.plot(np.rad2deg(theta_blade_arr[0,:]),V_rel_z_arr[blade_element,0,:],color='red', label='Vz')
     plt.xlabel('Azimuthal angle [degree]')
@@ -1324,7 +1320,18 @@ if use_tower_shadow:
     plt.legend()
     plt.grid()
     plt.show()
-
+    
+    plt.figure()
+    plt.title('Incoming wind velocity V0')
+    plt.plot(np.rad2deg(theta_blade_arr[0,:]),V0y_arr[blade_element,0,:],color='blue', label='Vy')
+    plt.plot(np.rad2deg(theta_blade_arr[0,:]),V0z_arr[blade_element,0,:],color='red', label='Vz')
+    plt.xlabel('Azimuthal angle [degree]')
+    plt.ylabel('Velocity[m/s]')
+    plt.xlim(0,360)
+    plt.legend()
+    plt.grid()
+    plt.show()    
+    
 
 #%% Plot af loadings
 
