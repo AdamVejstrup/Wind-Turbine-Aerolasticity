@@ -31,10 +31,10 @@ from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 
 # Use dynamic stall
-use_stall = True
+use_stall = False
 
 # Geometric angle of attack [rad]
-alpha_g = np.deg2rad(20)
+alpha_g = np.deg2rad(0)
 
 # Simulation time [s]
 t_sim = 40
