@@ -549,11 +549,23 @@ for n in range(1,timerange):
                 Vr=z1_arr[k,i,n]/r_til_punkt*V_rel_z_arr[k,i,n]*(1-(tower_rad/r_til_punkt)**2)
                 Vtheta=y1_arr[k,i,n]/r_til_punkt*V_rel_z_arr[k,i,n]*(1+(tower_rad/r_til_punkt)**2)
                 
-                V_rel_z_arr[k, i, n]=(z1_arr[k,i,n]/r_til_punkt)*Vr  +  (y1_arr[k,i,n]/r_til_punkt)*Vtheta
-                V_rel_y_arr[k, i, n]=(y1_arr[k,i,n]/r_til_punkt)*Vr  -  (z1_arr[k,i,n]/r_til_punkt)*Vtheta
-            
-            
-            
+                
+                
+                
+                #V_rel_y_arr[k, i, n]=(y1_arr[k,i,n]/r_til_punkt)*Vr  -  (z1_arr[k,i,n]/r_til_punkt)*Vtheta
+                #V_rel_z_arr[k, i, n]=(z1_arr[k,i,n]/r_til_punkt)*Vr  +  (y1_arr[k,i,n]/r_til_punkt)*Vtheta
+                
+                #NYT
+                Vrel_array=[0, (y1_arr[k,i,n]/r_til_punkt)*Vr  -  (z1_arr[k,i,n]/r_til_punkt)*Vtheta, (z1_arr[k,i,n]/r_til_punkt)*Vr  +  (y1_arr[k,i,n]/r_til_punkt)*Vtheta]
+                
+                
+                # Går til system 4
+                Vrel_4 = a14 @ Vrel_array
+                
+                V_rel_y_arr[k, i, n]=Vrel_array[1]
+                V_rel_z_arr[k, i, n]=Vrel_array[2]
+                
+                #######################
             
             phi = np.arctan(V_rel_z_arr[k, i, n]/(-V_rel_y_arr[k, i, n]))
             
