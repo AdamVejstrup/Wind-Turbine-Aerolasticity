@@ -74,6 +74,7 @@ x1=[]
 y1=[]
 z1=[]
 
+
 V0y=[]
 V0z=[]
 
@@ -109,26 +110,22 @@ for i in range(timerange):
     
     V0_array=np.array([0,0,v0*(x1[i]/H)**wind_shear])
     
-    #Opgave 3
-    
+    #Omregner vindhastigheden til system 4
     V0_4=a14@V0_array
-    
-    
-    # V0 uden tower (system 4)
     V0y.append(V0_4[1])
     V0z.append(V0_4[2])
     
-    
-    #Opgave 4
+    #Tower shadow gælder kun når x<H
     if x1[i]<=H:
         a=3.32
     elif x1[i]>H:
-        a=0
-        
+        a=0 
+
+
+    # Vrel med tower (system 4)
     Vr=z1[i]/r_til_punkt*V0z[i]*(1-(a/r_til_punkt)**2)
     Vtheta=y1[i]/r_til_punkt*V0z[i]*(1+(a/r_til_punkt)**2)
     
-    # V0 med tower (system 4)
     Vz.append((z1[i]/r_til_punkt*Vr+y1[i]/r_til_punkt*Vtheta))
     Vy.append((y1[i]/r_til_punkt*Vr-z1[i]/r_til_punkt*Vtheta))
 
@@ -141,17 +138,6 @@ theta_blade1=np.array(theta_blade1)
 x1_pos=np.cos(theta_blade1)*r+H
 y1_pos=np.sin(theta_blade1)*r
 
-#Opgave 1
-plt.figure()
-plt.title('Position in space (x,y)')
-plt.plot(time,x1_pos,color='blue', label='x')
-plt.plot(time,y1_pos,color='red', label='y')
-plt.xlim(0, 30)
-plt.xlabel('time [s]')
-plt.ylabel('Positon[m]')
-plt.legend()
-plt.grid()
-plt.show()
 
 
 #Opgave 2
@@ -168,7 +154,7 @@ plt.show()
 
 ##Opgave 3
 plt.figure()
-plt.title('Wind velocity (V1)')
+plt.title('Wind velocity (V0)')
 plt.plot(theta_blade1[:-1],V0y,color='red', label='V0_y')
 plt.plot(theta_blade1[:-1],V0z,color='blue', label='V0_z')
 plt.xlabel('Azimuth angle [rad]')
@@ -180,7 +166,19 @@ plt.show()
 
 ##Opgave 4
 plt.figure()
-plt.title('Wind velocity (V1)')
+plt.title('Wind velocity (V0 system 4)')
+plt.plot(np.rad2deg(theta_blade1[:-1]),V0y[:],color='blue', label='Vy')
+plt.plot(np.rad2deg(theta_blade1[:-1]),V0z[:],color='red', label='Vz')
+plt.xlabel('Azimuthal angle [degree]')
+plt.ylabel('Velocity[m/s]')
+plt.xlim(0,360)
+plt.legend()
+plt.grid()
+plt.show()
+
+##Opgave 4
+plt.figure()
+plt.title('Wind velocity (Vrel)')
 plt.plot(np.rad2deg(theta_blade1[:-1]),Vy[:],color='blue', label='Vy')
 plt.plot(np.rad2deg(theta_blade1[:-1]),Vz[:],color='red', label='Vz')
 plt.xlabel('Azimuthal angle [degree]')
