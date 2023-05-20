@@ -20,11 +20,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Choose between linear or non-linear newmark
-linear_newmark = False
-non_linear_newmark = True
+linear_newmark = True
+non_linear_newmark = False
 
 # Setting simulation time
-h = 0.01    # Timestep [s]
+h = 0.0001    # Timestep [s]
 tstart = 0  # Start time [s]
 tend = 50   # End time [s]
 
@@ -188,10 +188,11 @@ elif non_linear_newmark:
 plt.figure()
 plt.grid()
 plt.title(f'Cart position and beam angular positon, timestep = {h} s')
-plt.plot(time, x[0, :], label='$x_{newmark}$')
-plt.plot(time, x[1, :], label='$\Theta_{newmark}$')
+plt.plot(time, x[0, :], label='$x_{newmark}[m]$')
+plt.plot(time, x[1, :], label='$\Theta_{newmark}[rad]$')
 plt.xlabel('Time [s]')
-plt.ylabel('Cart position $x$ [m] and beam angle $\Theta$ [rad]')
+plt.ylabel('Cart position and beam angle')
+plt.xlim(tstart,tend)
 plt.legend()
 plt.show()
 
@@ -202,6 +203,7 @@ plt.title(f'Beam angular position, timestep = {h} s')
 plt.plot(time, np.rad2deg(x[1, :]), label='$\Theta_{newmark}$')
 plt.xlabel('Time [s]')
 plt.ylabel('Beam angle $\Theta$ [deg]')
+plt.xlim(tstart,tend)
 plt.legend()
 plt.show()
 
