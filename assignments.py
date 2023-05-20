@@ -31,14 +31,15 @@ plt.rcParams.update({'font.size':12})
 # if use_pitch = True then pitch is changed in time interval (see assignment1 description)
 # if use_pitch = False then the pitch is always 0 (except if pitch controller is used)
 use_pitch = False #Time interval pitch
-use_dwf = False # Dynamic wake filter
-use_stall = False # Dynamic stall
+use_dwf = True # Dynamic wake filter
+use_stall = True # Dynamic stall
 use_turbulence = False # Turbulent data
-use_pitch_controller = False # Pitch controller.
-use_tower_shadow = True #Tower shadow
-use_wind_shear = True # Wind shear (true=wind shear 0.2, else 0)
+use_pitch_controller = True # Pitch controller.
+use_tower_shadow = False #Tower shadow
+use_wind_shear = False # Wind shear (true=wind shear 0.2, else 0)
 use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
 use_dof11 = False
+use_changeMG = True #Change generator torque at specific time (OBS hardcodet skal ændres i funktionen)
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
 delta_t=0.15 # s
@@ -66,10 +67,10 @@ if use_turbulence and timerange < 4000:
 # %% Choose plots
 
 plot_gen_char = False # Generator characteristic (laves i functions)
-plot_omega = False # Omega against time
+plot_omega = True # Omega against time
 plot_hubwind = False #Wind at hub height
 plot_theta_p = False # Pitch against time
-plot_position_sys1 = True # (y, x)-coordinates in system 1 of given blade element
+plot_position_sys1 = False # (y, x)-coordinates in system 1 of given blade element
 plot_thrust_power = False # Thrust and power
 plot_induced_wind = False # Induced wind y and z
 plot_load_distribution = False # Load distribution and dtu 9 m/s load distribution
@@ -80,7 +81,7 @@ plot_turbulence_contour = False # Contour plot of turbulence
 plot_deflection = False # Plot of blade deflections 
 plot_tower_deflection = False # Plot of tower deflections 
 plot_bending_moment = False # Plot of bending moment, time and PSD
-plot_tower_shadow=True
+plot_tower_shadow=False
 
 # %% Force coeff files
 
@@ -115,7 +116,7 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0 = 10 # mean windspeed at hub height m/s
+V_0 = 9 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H = 119  # Hub height m
@@ -123,7 +124,7 @@ L_s = 7.1  # Length of shaft m
 R = 89.17 # Radius m
 A = R**2 *np.pi #m^2
 tilt_deg = 0 # grader   (bruges ikke i uge 1)
-lam_opt = 8 #
+lam_opt = 8 #Tip speed ratio [-]
 P_rated = 10.64*10**6 #W
 rho = 1.225 # kg/m**3
 I_rotor = 1.6*10**8 #kg*m^2  inertia moment of the drivetrain
@@ -140,9 +141,10 @@ K_P = 1.5 # s
 C_p_opt = 0.47 #optimal C_p for DTU 10MW
 K_const = 0.5*rho*A*R**3 * (C_p_opt/lam_opt**3) #konstant der bruges til at regne M_g
 omega_rated = (P_rated/K_const)**(1/3)
-M_g_max = K_const * omega_rated**2  #Vores max generator torque
+#M_g_max = K_const * omega_rated**2  #Vores max generator torque
+M_g_max = 1.0545* 10**7   #Max generator torque (værdi givet fra taesong)
 # omega_ref = 1.02 * omega_rated #tommelfingerregel fra Taesong
-omega_ref = 1.01#tommelfingerregel fra Martin
+omega_ref = 1.01  #tommelfingerregel fra Martin
 
 if use_pitch_controller:
     omega = (lam_opt*V_0)/R 
@@ -549,24 +551,10 @@ for n in range(1,timerange):
                 Vr=z1_arr[k,i,n]/r_til_punkt*V_rel_z_arr[k,i,n]*(1-(tower_rad/r_til_punkt)**2)
                 Vtheta=y1_arr[k,i,n]/r_til_punkt*V_rel_z_arr[k,i,n]*(1+(tower_rad/r_til_punkt)**2)
                 
+                V_rel_y_arr[k, i, n]=(y1_arr[k,i,n]/r_til_punkt)*Vr  -  (z1_arr[k,i,n]/r_til_punkt)*Vtheta
+                V_rel_z_arr[k, i, n]=(z1_arr[k,i,n]/r_til_punkt)*Vr  +  (y1_arr[k,i,n]/r_til_punkt)*Vtheta
                 
-                
-                
-                #V_rel_y_arr[k, i, n]=(y1_arr[k,i,n]/r_til_punkt)*Vr  -  (z1_arr[k,i,n]/r_til_punkt)*Vtheta
-                #V_rel_z_arr[k, i, n]=(z1_arr[k,i,n]/r_til_punkt)*Vr  +  (y1_arr[k,i,n]/r_til_punkt)*Vtheta
-                
-                #NYT
-                Vrel_array=[0, (y1_arr[k,i,n]/r_til_punkt)*Vr  -  (z1_arr[k,i,n]/r_til_punkt)*Vtheta, (z1_arr[k,i,n]/r_til_punkt)*Vr  +  (y1_arr[k,i,n]/r_til_punkt)*Vtheta]
-                
-                
-                # Går til system 4
-                Vrel_4 = a14 @ Vrel_array
-                
-                V_rel_y_arr[k, i, n]=Vrel_array[1]
-                V_rel_z_arr[k, i, n]=Vrel_array[2]
-                
-                #######################
-            
+
             phi = np.arctan(V_rel_z_arr[k, i, n]/(-V_rel_y_arr[k, i, n]))
             
             if use_pitch_controller:
@@ -661,12 +649,26 @@ for n in range(1,timerange):
     T = np.trapz(np.sum(pn_arr,axis=1)[:,n],r)
     T_arr[n] = T
     
+    
+
     # Calculate M_g (generator moment)
     if omega_arr[n-1] < omega_ref: 
         M_g = K_const * omega_arr[n-1]**2
-    
     else:
-        M_g = 1.0545* 10**7
+        M_g=M_g_max
+    
+    if use_changeMG:
+        if 0 <= time_arr[n] <= 150:
+            if omega_arr[n-1] < omega_ref: 
+                M_g = K_const * omega_arr[n-1]**2
+            else:
+                M_g=M_g_max  
+        elif 150 < time_arr[n]:
+            if omega_arr[n-1] < omega_ref:
+                M_g = (K_const*0.8) * omega_arr[n-1]**2
+            else:
+                M_g=M_g_max   
+    
     
     #%% Newmark - deflection
     if use_dof3 or use_dof11:
@@ -914,19 +916,7 @@ for n in range(1,timerange):
 
     #%% update omega and pitch til pitch controller
     
-    if use_pitch_controller:
-
-        #Region 1
-        if omega_arr[n-1] < omega_ref: 
-            #update omega
-            M_g = K_const * omega_arr[n-1]**2
-            
-        # Region 2+3
-        else:
-            #update omega 
-            # M_g = M_g_max
-            M_g = 1.0545* 10**7
-        
+    if use_pitch_controller:        
         #update theta_pitch
         GK = (1/ (1 + (theta_p_arr[n-1]/K1)))
         theta_p_P = GK * K_P * ( omega_arr[n-1] -omega_ref)
@@ -983,8 +973,8 @@ if plot_omega:
     plt.xlabel('Time [s]')
     plt.ylabel('$\omega$ [rad/s]')
     #plt.xlim(time_arr[mask][0], time_arr[mask][-1])
-    plt.xlim(20,200)
-    plt.ylim(0.75,0.95)
+    plt.xlim(50,550)
+    #plt.ylim(0.75,0.95)
     plt.legend()
     plt.show()
 
