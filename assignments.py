@@ -31,21 +31,21 @@ plt.rcParams.update({'font.size':12})
 # if use_pitch = True then pitch is changed in time interval (see assignment1 description)
 # if use_pitch = False then the pitch is always 0 (except if pitch controller is used)
 use_pitch = False #Time interval pitch
-use_dwf = True # Dynamic wake filter
-use_stall = True # Dynamic stall
+use_dwf = False # Dynamic wake filter
+use_stall = False # Dynamic stall
 use_turbulence = False # Turbulent data
-use_pitch_controller = True # Pitch controller.
-use_tower_shadow = False #Tower shadow
-use_wind_shear = False # Wind shear (true=wind shear 0.2, else 0)
+use_pitch_controller = False # Pitch controller.
+use_tower_shadow = True #Tower shadow
+use_wind_shear = True # Wind shear (true=wind shear 0.2, else 0)
 use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
 use_dof11 = False
-use_changeMG = True #Change generator torque at specific time (OBS hardcodet skal ændres i funktionen)
+use_changeMG = False #Change generator torque at specific time (OBS hardcodet skal ændres i funktionen)
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
-delta_t=0.15 # s
+delta_t=0.05 # s
 #delta_t=0.2
-#timerange=8191
-timerange=4000
+timerange=2000
+#timerange=4000
 
 
 if use_wind_shear:
@@ -67,7 +67,7 @@ if use_turbulence and timerange < 4000:
 # %% Choose plots
 
 plot_gen_char = False # Generator characteristic (laves i functions)
-plot_omega = True # Omega against time
+plot_omega = False # Omega against time
 plot_hubwind = False #Wind at hub height
 plot_theta_p = False # Pitch against time
 plot_position_sys1 = False # (y, x)-coordinates in system 1 of given blade element
@@ -81,7 +81,7 @@ plot_turbulence_contour = False # Contour plot of turbulence
 plot_deflection = False # Plot of blade deflections 
 plot_tower_deflection = False # Plot of tower deflections 
 plot_bending_moment = False # Plot of bending moment, time and PSD
-plot_tower_shadow=False
+plot_tower_shadow=True   #Plot Vy og Vz i system 4 for specific blade element
 
 # %% Force coeff files
 
@@ -116,14 +116,13 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0 = 9 # mean windspeed at hub height m/s
+V_0 = 10 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H = 119  # Hub height m
 L_s = 7.1  # Length of shaft m
 R = 89.17 # Radius m
 A = R**2 *np.pi #m^2
-tilt_deg = 0 # grader   (bruges ikke i uge 1)
 lam_opt = 8 #Tip speed ratio [-]
 P_rated = 10.64*10**6 #W
 rho = 1.225 # kg/m**3
@@ -154,13 +153,12 @@ if use_pitch_controller:
     
 else:
     #omega= 7.229*2*np.pi/60 # rad/s    Til assignment 1 og 2
-    #omega = 0.628 #rad/s                 Til assignment 3 
-    omega=0.62
+    omega = 0.628 #rad/s                 Til assignment 3 
     omega_arr = np.full(timerange, omega)
 
 theta_cone = 0 # radianer
 theta_yaw = np.deg2rad(20) # radianer
-theta_tilt = 0 # radianer
+theta_tilt = np.deg2rad(0) # radianer
 theta_p = 0 # radianer
 theta_p_I = 0 # radianer
 
@@ -521,13 +519,28 @@ for n in range(1,timerange):
             else:
                 V0_array = np.array([0,0,V_0 * (x1_arr[k, i, n]/H)**wind_shear])
             
+
+            
+            if use_tower_shadow:
+                r_til_punkt=( y1_arr[k,i,n]**2+z1_arr[k,i,n]**2   )**(1/2) #Distancen til punktet r ud fra koordinaterne fra vektoren r_1
+                if x1_arr[k,i,n]<=H:    #Tower shadow gælder kun når x er mindre end hub height H
+                    tower_rad=3.32
+                elif x1_arr[k,i,n]>H:
+                    tower_rad=0
+                Vr=z1_arr[k,i,n]/r_til_punkt*V0_array[2]*(1-(tower_rad/r_til_punkt)**2)
+                Vtheta=y1_arr[k,i,n]/r_til_punkt*V0_array[2]*(1+(tower_rad/r_til_punkt)**2)
+                
+                Vy=(y1_arr[k,i,n]/r_til_punkt)*Vr  -  (z1_arr[k,i,n]/r_til_punkt)*Vtheta
+                Vz=(z1_arr[k,i,n]/r_til_punkt)*Vr  +  (y1_arr[k,i,n]/r_til_punkt)*Vtheta
+                
+                V0_array=[0,Vy,Vz]
+                
             # Går til system 4
             V0_4 = a14 @ V0_array
             
             V0x_arr[k, i, n] = V0_4[0]
             V0y_arr[k, i, n] = V0_4[1]
-            V0z_arr[k, i, n] = V0_4[2]
-            
+            V0z_arr[k, i, n] = V0_4[2]            
 
             V_rel_y_arr[k, i, n] = V0y_arr[k, i, n] + Wy_arr[k, i, n-1] - omega_arr[n-1] * r[k] * np.cos(theta_cone)
             V_rel_z_arr[k, i, n] = V0z_arr[k, i, n] + Wz_arr[k, i, n-1]    
@@ -542,18 +555,7 @@ for n in range(1,timerange):
                 V_rel_y_arr[k, i, n] = V_rel_y_arr[k, i, n] - duy[k, i, n-1]
                 V_rel_z_arr[k, i, n] = V_rel_z_arr[k, i, n] - duz[k, i, n-1] - dx[0, n-1]
                 
-            if use_tower_shadow:
-                r_til_punkt=( y1_arr[k,i,n]**2+z1_arr[k,i,n]**2   )**(1/2) #Distancen til punktet r ud fra koordinaterne fra vektoren r_1
-                if x1_arr[k,i,n]<=H:    #Tower shadow gælder kun når x er mindre end hub height H
-                    tower_rad=3.32
-                elif x1_arr[k,i,n]>H:
-                    tower_rad=0
-                Vr=z1_arr[k,i,n]/r_til_punkt*V_rel_z_arr[k,i,n]*(1-(tower_rad/r_til_punkt)**2)
-                Vtheta=y1_arr[k,i,n]/r_til_punkt*V_rel_z_arr[k,i,n]*(1+(tower_rad/r_til_punkt)**2)
-                
-                V_rel_y_arr[k, i, n]=(y1_arr[k,i,n]/r_til_punkt)*Vr  -  (z1_arr[k,i,n]/r_til_punkt)*Vtheta
-                V_rel_z_arr[k, i, n]=(z1_arr[k,i,n]/r_til_punkt)*Vr  +  (y1_arr[k,i,n]/r_til_punkt)*Vtheta
-                
+            
 
             phi = np.arctan(V_rel_z_arr[k, i, n]/(-V_rel_y_arr[k, i, n]))
             
@@ -973,7 +975,7 @@ if plot_omega:
     plt.xlabel('Time [s]')
     plt.ylabel('$\omega$ [rad/s]')
     #plt.xlim(time_arr[mask][0], time_arr[mask][-1])
-    plt.xlim(50,550)
+    plt.xlim(50,120)
     #plt.ylim(0.75,0.95)
     plt.legend()
     plt.show()
@@ -1023,7 +1025,7 @@ if plot_deflection:
         plt.xlabel('Time [s]')
         plt.ylabel('Deflection [m]')
     
-        plt.xlim(150,409)
+        plt.xlim(100,200)
         plt.ylim(0,6)
 
         plt.legend()
@@ -1138,6 +1140,34 @@ if plot_deflection:
         ax.set_yscale('log')
         plt.legend()
         ax.grid()
+        
+        ##################    Enhedsløs PSD plot for deflection    #######################
+        sec_to_dis = 150
+        # observations to discard
+        obs_to_dis = int(sec_to_dis/delta_t)
+        
+        # Frequency for psd
+        fs=1/(time_arr[1]-time_arr[0])
+        
+        #Compute and plot the power spectral density. 
+        uz_freq, uz_psd = signal.welch(uz[-1, 0, obs_to_dis:], fs, nperseg=1024)
+        uy_freq, uy_psd = signal.welch(uy[-1, 0, obs_to_dis:], fs, nperseg=1024)
+        
+        
+        fig,ax = plt.subplots(1,1)
+        plt.plot(uy_freq*2*np.pi/omega, uy_psd, color='darkorange',label='Edgewise tip deflection')
+        plt.plot(uz_freq*2*np.pi/omega, uz_psd, label='Flapwise tip deflection')
+        
+        ax.set(xlabel = '$2\pi f/\omega$', ylabel = 'PSD [$(m)^{2} / Hz$]')
+        
+        # Sætter y lim, så den er lidt højere end peaket
+        ax.set_title('Power spectral density of deflection')
+        ax.set_xlim(0, 4)
+        ax.set_ylim(bottom=10**(-7))
+        plt.legend()
+        ax.grid()
+        
+        
         
         if plot_bending_moment:
             #Plot of Bending moment at r = 2.8m
@@ -1309,9 +1339,9 @@ if plot_induced_wind:
 
 #%% Plotting Wind velocity for tower shadow
 if plot_tower_shadow:
-    blade_element = 8
+    blade_element = 17
     plt.figure()
-    plt.title('Relative wind velocity (Vrel)')
+    plt.title('$V_{rel}$ for blade element nr. ' + str(blade_element))
     plt.plot(np.rad2deg(theta_blade_arr[0,:]),V_rel_y_arr[blade_element,0,:],color='blue', label='Vy')
     plt.plot(np.rad2deg(theta_blade_arr[0,:]),V_rel_z_arr[blade_element,0,:],color='red', label='Vz')
     plt.xlabel('Azimuthal angle [degree]')
@@ -1322,7 +1352,7 @@ if plot_tower_shadow:
     plt.show()
     
     plt.figure()
-    plt.title('Incoming wind velocity V0')
+    plt.title('$V_0$ for blade element nr. ' + str(blade_element))
     plt.plot(np.rad2deg(theta_blade_arr[0,:]),V0y_arr[blade_element,0,:],color='blue', label='Vy')
     plt.plot(np.rad2deg(theta_blade_arr[0,:]),V0z_arr[blade_element,0,:],color='red', label='Vz')
     plt.xlabel('Azimuthal angle [degree]')
