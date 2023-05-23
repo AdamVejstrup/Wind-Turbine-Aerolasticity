@@ -17,6 +17,9 @@ from assignment_functions import (x_mask, make_gen_char,
                                   pitch_correct_z,
                                   pitch_correct_y,
                                   solve_eig_prob)
+from mann_exercise_toke import (write_mann_input,
+                                run_mann_simulation)
+
 # import array_to_latex as a2l
 
 # Giver figurer i bedre kvalitet når de vises i Spyder og når de gemmes (kan evt. sættes op til 500)
@@ -31,14 +34,14 @@ plt.rcParams.update({'font.size':12})
 # if use_pitch = True then pitch is changed in time interval (see assignment1 description)
 # if use_pitch = False then the pitch is always 0 (except if pitch controller is used)
 use_pitch = False #Time interval pitch
-use_dwf = False # Dynamic wake filter
-use_stall = False # Dynamic stall
-use_turbulence = False # Turbulent data
-use_pitch_controller = False # Pitch controller.
-use_tower_shadow = True #Tower shadow
-use_wind_shear = True # Wind shear (true=wind shear 0.2, else 0)
+use_dwf = True # Dynamic wake filter
+use_stall = True # Dynamic stall
+use_turbulence = True # Turbulent data
+use_pitch_controller = True # Pitch controller.
+use_tower_shadow = False #Tower shadow
+use_wind_shear = False # Wind shear (true=wind shear 0.2, else 0)
 use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
-use_dof11 = False
+use_dof11 = True
 use_changeMG = False #Change generator torque at specific time (OBS hardcodet skal ændres i funktionen)
 
 # NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
@@ -71,7 +74,7 @@ plot_omega = False # Omega against time
 plot_hubwind = False #Wind at hub height
 plot_theta_p = False # Pitch against time
 plot_position_sys1 = False # (y, x)-coordinates in system 1 of given blade element
-plot_thrust_power = False # Thrust and power
+plot_thrust_power = True # Thrust and power
 plot_induced_wind = False # Induced wind y and z
 plot_load_distribution = False # Load distribution and dtu 9 m/s load distribution
 plot_thrust_per_blade = False # Thrust for each blade and total thrust
@@ -81,7 +84,7 @@ plot_turbulence_contour = False # Contour plot of turbulence
 plot_deflection = False # Plot of blade deflections 
 plot_tower_deflection = False # Plot of tower deflections 
 plot_bending_moment = False # Plot of bending moment, time and PSD
-plot_tower_shadow=True   #Plot Vy og Vz i system 4 for specific blade element
+plot_tower_shadow=False   #Plot Vy og Vz i system 4 for specific blade element
 
 # %% Force coeff files
 
@@ -116,7 +119,7 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0 = 10 # mean windspeed at hub height m/s
+V_0 = 15 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H = 119  # Hub height m
@@ -140,7 +143,7 @@ K_P = 1.5 # s
 C_p_opt = 0.47 #optimal C_p for DTU 10MW
 K_const = 0.5*rho*A*R**3 * (C_p_opt/lam_opt**3) #konstant der bruges til at regne M_g
 omega_rated = (P_rated/K_const)**(1/3)
-#M_g_max = K_const * omega_rated**2  #Vores max generator torque
+# M_g_max = K_const * omega_rated**2  #Vores max generator torque
 M_g_max = 1.0545* 10**7   #Max generator torque (værdi givet fra taesong)
 # omega_ref = 1.02 * omega_rated #tommelfingerregel fra Taesong
 omega_ref = 1.01  #tommelfingerregel fra Martin
@@ -157,7 +160,7 @@ else:
     omega_arr = np.full(timerange, omega)
 
 theta_cone = 0 # radianer
-theta_yaw = np.deg2rad(20) # radianer
+theta_yaw = np.deg2rad(0) # radianer
 theta_tilt = np.deg2rad(0) # radianer
 theta_p = 0 # radianer
 theta_p_I = 0 # radianer
@@ -186,7 +189,32 @@ u1fy, u1fz, u1ey, u1ez, u2fy, u2fz, r_mass = mode_shapes[:, 1:].T
 #%% Turbulence box
 
 if use_turbulence:
-  
+    
+    # Mann box parameters
+    n1 = 4096       # Must be 2 raised to the power of something e.g. 2^12 = 4096
+    
+    if n1 < timerange:
+        raise ValueError(f'Mann box has size n1 = {n1} but timerange is {timerange}')
+    
+    n2 = 32         # Don't change
+    n3 = 32         # Don't change
+    ly = 180        # Don't change
+    lz = 180        # Don't change
+
+    z_0 = 0.05      # Roughness lenght [m]
+
+    # Defining the filename
+    filename = 'mann_assignment.INP'
+
+    # Write the input file
+    write_mann_input(filename, delta_t, n1, n2, n3,
+                     ly, lz, H, z_0, V_0)
+
+    # Load the turbulence data
+    ushp, X_turb, Y_turb, Z_turb = run_mann_simulation(filename)
+
+    
+    """
     # Reading in parameters for the turbulent box
     turbulence_parameters = np.genfromtxt('turbulence/inputEx3.INP')
     
@@ -228,7 +256,7 @@ if use_turbulence:
     X_turb = np.arange(0,n2)*deltaz + (H - (n2-1)*deltaz/2) # Height
     Y_turb = np.arange(0,n3)*deltay - ((n3-1) * deltay)/2 # Width
     Z_turb = np.arange(0,n1)*deltax # Depth (Time)
-    
+    """
 
 #%% Transformation matrices
 
@@ -575,8 +603,12 @@ for n in range(1,timerange):
                 
                 fs_arr[k, i, n] = f_stat + (fs_arr[k, i, n-1]-f_stat) * np.exp(-delta_t/tau_stall)
                 
-                cl_arr[k, i, n] = f_stat * cl_inv + (1-fs_arr[k, i, n]) * cl_fs
-            
+                # Den gamle linje med fejl
+                # cl_arr[k, i, n] = f_stat * cl_inv + (1-fs_arr[k, i, n]) * cl_fs
+                
+                # Den rigtige linje
+                cl_arr[k, i, n] = fs_arr[k, i, n] * cl_inv + (1-fs_arr[k, i, n]) * cl_fs
+                
             else:
                 cl_arr[k, i, n] = cl
             
@@ -1102,7 +1134,7 @@ if plot_deflection:
         # plt.xlim(time_arr[mask][0], time_arr[mask][-1])
         #plt.xlim(time_arr[0], time_arr[-1])
     
-        plt.xlim(150,409)
+        plt.xlim(40,90)
         plt.ylim(0,6)
 
         plt.legend()
@@ -1251,7 +1283,7 @@ if plot_deflection:
 
 #%% Plot x og y position sammmen for en given airfoil
 #mask = x_mask(time_arr, xlim_min, xlim_max)
-mask = x_mask(time_arr, 0, 30)
+mask = x_mask(time_arr, 40)
 # Last blade element
 blade_element = 17
 
@@ -1300,7 +1332,8 @@ if plot_thrust_power:
     plt.xlabel('Time [s]')
     plt.ylabel('Power [MW]')
     #plt.xlim(time_arr[mask][0], time_arr[mask][-1])
-    plt.xlim(100,200)
+    plt.xlim(0,200)
+    plt.ylim(8.5,11.5)
     plt.legend()
     plt.show()
 
@@ -1415,7 +1448,7 @@ if plot_turbulence_contour:
     
     # Plot a contour
     plane_number = 1000
-    plane_time = deltat * plane_number
+    plane_time = delta_t * plane_number
     
     fig,ax=plt.subplots(1,1)
     cp = ax.contourf(Y_turb,X_turb, ushp[plane_number,:,:])
@@ -1427,7 +1460,7 @@ if plot_turbulence_contour:
     ax.plot([0,R*np.sin(4*np.pi/3)],[H,H + R*np.cos(4*np.pi/3)],color='white',linewidth = lwd)
     ax.plot([0,0],[X_turb[0],H],color='white',linewidth = lwd)
     ax.axis('scaled')
-    ax.set_title(f'Wind speed = {umean} m/s + turbulence')
+    ax.set_title(f'Wind speed = {V_0} m/s + turbulence')
     ax.set_xlabel('y [m]')
     ax.set_ylabel('x [m]')
     plt.show()
