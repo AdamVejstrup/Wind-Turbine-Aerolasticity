@@ -33,23 +33,26 @@ plt.rcParams.update({'font.size':12})
 
 # if use_pitch = True then pitch is changed in time interval (see assignment1 description)
 # if use_pitch = False then the pitch is always 0 (except if pitch controller is used)
-use_pitch = False #Time interval pitch
-use_dwf = True # Dynamic wake filter
-use_stall = True # Dynamic stall
-use_turbulence = True # Turbulent data
+use_pitch = False           # Time interval pitch
+use_dwf = True              # Dynamic wake filter
+use_stall = True            # Dynamic stall
+use_turbulence = True       # Turbulent data
 use_pitch_controller = True # Pitch controller.
-use_tower_shadow = False #Tower shadow
-use_wind_shear = False # Wind shear (true=wind shear 0.2, else 0)
-use_dof3 = False # Find deflections for 1 elastic blade (two other are stiff)
-use_dof11 = True
-use_changeMG = False #Change generator torque at specific time (OBS hardcodet skal ændres i funktionen)
+use_tower_shadow = False    # Tower shadow
+use_wind_shear = False      # Wind shear (true=wind shear 0.2, else 0)
+use_dof3 = True            # Find deflections for 1 elastic blade (two other are stiff)
+use_dof11 = False            # 11 DOF
+use_changeMG = False        # Change generator torque at specific time (OBS hardcodet skal ændres i funktionen)
 
-# NB hvis man skal se gode resultater for pds, skal man kører 4000 steps eller over
-delta_t=0.05 # s
-#delta_t=0.2
-timerange=2000
-#timerange=4000
+# NB hvis man skal se gode resultater for psd, skal man kører 4000 steps eller over
+# delta_t=0.05 # s
+delta_t=0.05
+timerange=4096
+# timerange=4096
 
+#for the plots, plots from xlim_min and forward
+xlim_min = 40  #s
+xlim_max = timerange*delta_t #s
 
 if use_wind_shear:
     wind_shear = 0.2
@@ -57,9 +60,8 @@ else:
     wind_shear = 0
 
 
-#for the plots, plots from xlim_min and forward
-xlim_min = 0  #s
-xlim_max = 200 #s
+
+
 
 # xlim_max = time_arr[-1] #s
 
@@ -74,14 +76,14 @@ plot_omega = False # Omega against time
 plot_hubwind = False #Wind at hub height
 plot_theta_p = False # Pitch against time
 plot_position_sys1 = False # (y, x)-coordinates in system 1 of given blade element
-plot_thrust_power = True # Thrust and power
+plot_thrust_power = False # Thrust and power
 plot_induced_wind = False # Induced wind y and z
 plot_load_distribution = False # Load distribution and dtu 9 m/s load distribution
 plot_thrust_per_blade = False # Thrust for each blade and total thrust
 plot_pn_specific_element = False # Normal loading for specific blade and specific blade element
 plot_thrust_psd = False # PSD of total thrust
 plot_turbulence_contour = False # Contour plot of turbulence
-plot_deflection = False # Plot of blade deflections 
+plot_deflection = True # Plot of blade deflections 
 plot_tower_deflection = False # Plot of tower deflections 
 plot_bending_moment = False # Plot of bending moment, time and PSD
 plot_tower_shadow=False   #Plot Vy og Vz i system 4 for specific blade element
@@ -119,7 +121,7 @@ r,beta_deg,c,tc = airfoils.T
 
 # NB: ALLE VINKLER ER RADIANER MED MINDRE DE HEDDER _DEG SOM F.EKS. AOA
 
-V_0 = 15 # mean windspeed at hub height m/s
+V_0 = 10 # mean windspeed at hub height m/s
 
 B = 3 # Number of blades
 H = 119  # Hub height m
@@ -155,8 +157,8 @@ if use_pitch_controller:
     omega_arr[1] = omega
     
 else:
-    #omega= 7.229*2*np.pi/60 # rad/s    Til assignment 1 og 2
-    omega = 0.628 #rad/s                 Til assignment 3 
+    omega= 7.229*2*np.pi/60 # rad/s    Til assignment 1 og 2
+    # omega = 0.628 #rad/s                 Til assignment 3 
     omega_arr = np.full(timerange, omega)
 
 theta_cone = 0 # radianer
@@ -420,6 +422,8 @@ P_arr = np.zeros([timerange])
 CT_arr = np.zeros([timerange])
 CP_arr = np.zeros([timerange])
 T_all_arr = np.zeros([B, timerange])
+M_g_arr = np.zeros([timerange])
+P_elec_arr = np.zeros([timerange])
 
 # Blade position: 2D array (blade number, time)
 theta_blade_arr = np.zeros([B,timerange])
@@ -685,7 +689,7 @@ for n in range(1,timerange):
     
     
 
-    # Calculate M_g (generator moment)
+    # Calculate M_g (generator torque)
     if omega_arr[n-1] < omega_ref: 
         M_g = K_const * omega_arr[n-1]**2
     else:
@@ -986,28 +990,35 @@ for n in range(1,timerange):
     if use_dof11:
         # omega_arr[n] = omega_arr[n-1] + ddx[1, n]* delta_t
         omega_arr[n] = dx[1, n]
-        
-#%% PLot af M_g mod omega (generator torque mod roational speed)
+    
+    M_g_arr[n] = M_g
+    P_elec_arr[n] = M_g * omega_arr[n]
+
+#%% Mask
+
 mask = x_mask(time_arr, xlim_min, xlim_max)
+
+
+#%% PLot af M_g mod omega (generator torque mod roational speed)
 
 # Plotting generator characteristic
 if plot_gen_char:
     make_gen_char(omega_rated, K_const)
 
 #%% omega of pitch plot
-mask = x_mask(time_arr, xlim_min, xlim_max)
+
 
 if plot_omega:
     
     plt.figure()
     plt.grid()
     plt.title('Rotational speed $\omega$')
-    #plt.plot(time_arr[mask], omega_arr[mask], label = '$\omega$ rad/s')
-    plt.plot(time_arr, omega_arr, label = '$\omega$ rad/s')
+    plt.plot(time_arr[mask], omega_arr[mask], label = '$\omega$ rad/s')
+    # plt.plot(time_arr, omega_arr, label = '$\omega$ rad/s')
     plt.xlabel('Time [s]')
     plt.ylabel('$\omega$ [rad/s]')
     #plt.xlim(time_arr[mask][0], time_arr[mask][-1])
-    plt.xlim(50,120)
+    # plt.xlim(50,120)
     #plt.ylim(0.75,0.95)
     plt.legend()
     plt.show()
@@ -1051,14 +1062,17 @@ if plot_deflection:
 
         plt.title('Deflection, incoming wind speed: ' + str(V_0) + ' m/s')
         
-        plt.plot(time_arr, uz[-1, :], label = 'Flapwise tip deflection')
-        plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
+        plt.plot(time_arr[mask], uz[-1, mask], label = 'Flapwise tip deflection')
+        plt.plot(time_arr[mask], uy[-1, mask], label = 'Edgewise tip deflection')
+        
+        # plt.plot(time_arr, uz[-1, :], label = 'Flapwise tip deflection')
+        # plt.plot(time_arr, uy[-1, :], label = 'Edgewise tip deflection')
         
         plt.xlabel('Time [s]')
         plt.ylabel('Deflection [m]')
     
-        plt.xlim(100,200)
-        plt.ylim(0,6)
+        # plt.xlim(100,200)
+        # plt.ylim(0,6)
 
         plt.legend()
         plt.show()
@@ -1066,7 +1080,7 @@ if plot_deflection:
         ##################    PSD plot for deflection    #######################
         # Need to discard the first few seconds to avoid the transcient part which
         # has a hight impact on the psd. Seconds to discard:
-        sec_to_dis = 150
+        sec_to_dis = 50
         # observations to discard
         obs_to_dis = int(sec_to_dis/delta_t)
             
@@ -1144,7 +1158,7 @@ if plot_deflection:
         # Need to discard the first few seconds to avoid the transcient part which
         # has a hight impact on the psd. Seconds to discard:
 
-        sec_to_dis = 150
+        sec_to_dis = 50
         # observations to discard
         obs_to_dis = int(sec_to_dis/delta_t)
         
@@ -1174,7 +1188,7 @@ if plot_deflection:
         ax.grid()
         
         ##################    Enhedsløs PSD plot for deflection    #######################
-        sec_to_dis = 150
+        sec_to_dis = 50
         # observations to discard
         obs_to_dis = int(sec_to_dis/delta_t)
         
@@ -1187,8 +1201,8 @@ if plot_deflection:
         
         
         fig,ax = plt.subplots(1,1)
-        plt.plot(uy_freq*2*np.pi/omega, uy_psd, color='darkorange',label='Edgewise tip deflection')
-        plt.plot(uz_freq*2*np.pi/omega, uz_psd, label='Flapwise tip deflection')
+        plt.plot(uy_freq*2*np.pi/omega_arr[-1], uy_psd, color='darkorange',label='Edgewise tip deflection')
+        plt.plot(uz_freq*2*np.pi/omega_arr[-1], uz_psd, label='Flapwise tip deflection')
         
         ax.set(xlabel = '$2\pi f/\omega$', ylabel = 'PSD [$(m)^{2} / Hz$]')
         
@@ -1282,8 +1296,7 @@ if plot_deflection:
             plt.show()  
 
 #%% Plot x og y position sammmen for en given airfoil
-#mask = x_mask(time_arr, xlim_min, xlim_max)
-mask = x_mask(time_arr, 40)
+
 # Last blade element
 blade_element = 17
 
@@ -1298,7 +1311,7 @@ if plot_position_sys1:
                        mask, r, B, H)
 
 #%% Creating figure with subplots of T and P
-mask = x_mask(time_arr, xlim_min, xlim_max)
+
 
 
 if plot_thrust_power:
@@ -1323,35 +1336,36 @@ if plot_thrust_power:
     # Man skal af en eller anden grund have denne her linje med for at de to y-akser bliver aligned
     ax2.set_yticks(np.linspace(ax2.get_yticks()[0],ax2.get_yticks()[-1],len(ax1.get_yticks())))
     ax2.tick_params(axis='y', labelcolor=color)
+    plt.show()
 
     plt.figure()
     plt.grid()
     plt.title('Power')
-    #plt.plot(time_arr[mask], (P_arr/(10**6))[mask],label = 'Power')
-    plt.plot(time_arr, P_arr/10**6,label='Power')
+    plt.plot(time_arr[mask], (P_arr/(10**6))[mask],label = 'Power')
+    # plt.plot(time_arr[mask], (P_elec_arr/(10**6))[mask],label = 'Electrical power')
+    # plt.plot(time_arr, P_arr/10**6,label='Power')
     plt.xlabel('Time [s]')
     plt.ylabel('Power [MW]')
     #plt.xlim(time_arr[mask][0], time_arr[mask][-1])
-    plt.xlim(0,200)
-    plt.ylim(8.5,11.5)
+    # plt.xlim(0,200)
+    # plt.ylim(8.5,11.5)
     plt.legend()
     plt.show()
 
     plt.figure()
     plt.grid()
     plt.title('Thrust')
-    #plt.plot(time_arr[mask], (T_arr/(10**6))[mask],label = 'Thrust', color='tab:orange')
-    plt.plot(time_arr,T_arr/10**6,label='Thrust', color='tab:orange')
+    plt.plot(time_arr[mask], (T_arr/(10**6))[mask],label = 'Thrust', color='tab:orange')
+    # plt.plot(time_arr,T_arr/10**6,label='Thrust', color='tab:orange')
     plt.xlabel('Time [s]')
     plt.ylabel('Thrust [MN]')
     #plt.xlim(time_arr[mask][0], time_arr[mask][-1])
-    plt.xlim(0,30)
+    # plt.xlim(0,30)
     plt.legend()
     plt.show()
 
 
 #%% Plotting induced wind
-mask = x_mask(time_arr, xlim_min, xlim_max)
 
 
 if plot_induced_wind:

@@ -20,11 +20,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Choose between linear or non-linear newmark
-linear_newmark = True
-non_linear_newmark = False
+linear_newmark = False
+non_linear_newmark = True
 
 # Setting simulation time
-h = 0.0001    # Timestep [s]
+h = 0.01    # Timestep [s]
 tstart = 0  # Start time [s]
 tend = 50   # End time [s]
 

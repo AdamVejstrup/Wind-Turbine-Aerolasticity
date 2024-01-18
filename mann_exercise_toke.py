@@ -42,6 +42,9 @@ def write_mann_input(filename, delta_t, n1, n2, n3, ly, lz, hub_height, z_0, v_0
     delta_y = ly/(n2-1)
     delta_x = lx/(n1-1)
     delta_z = lz/(n3-1)
+    
+    # print(f'delta_x = {delta_x}')
+    # print(f'L_x = {lx}')
 
     # Remove the file extension from the filename
     cropped_filename = filename.split('.INP')[0]
@@ -122,7 +125,7 @@ def run_mann_simulation(filename):
     delta_y = ly/(n2-1)
     delta_x = lx/(n1-1)
     delta_z = lz/(n3-1)
-
+    
     # Changing dimensions from box to physical dimensions
     # x corresponds to z (time)
     # z corresponds to x

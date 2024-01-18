@@ -553,15 +553,15 @@ airfoil.calc_work(rho=1.225,
 
 # Quick plots
 airfoil.plot_work()
-airfoil.plot_F_x_l(x_lim_low=1)
-airfoil.plot_F_x_d(x_lim_low=1)
-airfoil.plot_cd(x_lim_low=1)
-airfoil.plot_cl(x_lim_low=1)
-airfoil.plot_alpha(x_lim_low=1)
-airfoil.plot_V_rel(x_lim_low=1)
+# airfoil.plot_F_x_l(x_lim_low=1)
+# airfoil.plot_F_x_d(x_lim_low=1)
+# airfoil.plot_cd(x_lim_low=1)
+# airfoil.plot_cl(x_lim_low=1)
+# airfoil.plot_alpha(x_lim_low=1)
+# airfoil.plot_V_rel(x_lim_low=1)
 
 # Setting limits manually
-airfoil.plot_F_x_l(x_lim_low=20, x_lim_high=25, y_lim_low=14, y_lim_high=17, use_mask=False)
+# airfoil.plot_F_x_l(x_lim_low=20, x_lim_high=25, y_lim_low=14, y_lim_high=17, use_mask=False)
 
 # Calculations take about 1 minute with 1000 timesteps and 20 full cycles
 # angles of attack 5, 10, 15, 20
